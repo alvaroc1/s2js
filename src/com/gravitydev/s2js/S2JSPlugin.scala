@@ -44,13 +44,17 @@ class S2JSPlugin (val global:Global) extends Plugin {
 				for (u <- tree.children) {
 					u match {
 						case c:ClassDef => {
+							val params = c.symbol.primaryConstructor.paramss.flatten
+							
 							p("goog.provide('" + c.symbol.tpe + "');")
 							p("")
 							p("/**")
 							p(" * @constructor")
+							for (param <- params) p(" * @param " + getType(param) + " " + param.name)
 							p(" */")
-							p(c.symbol.tpe + " = function () {")
+							p(c.symbol.tpe + " = function (" + params.map(_.name).mkString(", ") + ") {")
 							p("};")
+							p("goog.inherits(" + c.symbol.tpe + ", " + c.symbol.superClass.tpe + ");")
 							p("")
 							parseTree(c, i)
 							//TCPlugin.this.global.treeBrowser.browse(c)
@@ -70,7 +74,7 @@ class S2JSPlugin (val global:Global) extends Plugin {
 					
 					p("/**")
 					
-					for (arg <- args) p(" * @param " + getType(arg) + " " + arg.symbol.name) 
+					for (arg <- args) p(" * @param " + getType(arg.symbol) + " " + arg.symbol.name) 
 					
 					p(" */")
 					
@@ -84,7 +88,13 @@ class S2JSPlugin (val global:Global) extends Plugin {
 					p("};")
 					p("")
 					//TCPlugin.this.global.treeBrowser.browse(d)
+				} else {
+					S2JSPlugin.this.global.treeBrowser.browse(d)
 				}
+			}
+			
+			def printMethod2 (d:Symbol, i:Int) {
+				
 			}
 			
 			def printTree (tree:Tree, i:Int) {
@@ -103,7 +113,7 @@ class S2JSPlugin (val global:Global) extends Plugin {
 
 			
 			def printValDef (valdef:ValDef, i:Int) {
-				p("/** @type " + getType(valdef) + " */", i)
+				p("/** @type " + getType(valdef.symbol) + " */", i)
 				p("var " + valdef.name + " = " + valdef.rhs + ";", i)
 			}
 			
@@ -117,15 +127,14 @@ class S2JSPlugin (val global:Global) extends Plugin {
 				p("}", i) 
 			}
 			
-			def getType (tree:Tree) = {
-				tree.symbol.tpe.toString match {
+			def getType (symbol:Symbol) = {
+				symbol.tpe.toString match {
 					case "Boolean" => "{boolean}"
 					case x:String => "{"+x+"}"
 				}
 			}
 			
 			def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg
-			
 		
 			def p (code:{def toString:String}, indent:Int) {
 				for (i <- 1 to indent) add("\t")

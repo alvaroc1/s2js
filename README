@@ -1,4 +1,6 @@
 S2JS Compiler Plugin
 ====================
 
-Scala-to-Javascript compiler plugin
+Scala-to-Javascript compiler plugin that produces annotated javascript suitable for the closure compiler.
+
+It is a work in progress, probably not usable yet.
