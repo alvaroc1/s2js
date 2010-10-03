@@ -79,7 +79,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		
 		def getConstructor (c:ClassDef, const:DefDef) = JsConstructor(
 			c.symbol.tpe.toString,
-			for (arg <- parseMethodArgs(const)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol)),
+			for (arg <- parseMethodArgs(const)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol.tpe.toString)),
 			for (child <- const.rhs.children) yield getJsTree (child),
 			for (child <- c.impl.body if !child.isInstanceOf[DefDef]) yield getJsTree(child)
 		)
@@ -88,7 +88,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			//S2JSComponent.this.global.treeBrowser.browse(method)
 			JsMethod(
 				c.impl.tpe.toString+".prototype."+method.name.toString,
-				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol)),
+				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol.tpe.toString)),
 				//for (child <- method.rhs.children) yield getJsTree (child)
 				List(getJsTree(method.rhs))
 			)
@@ -162,6 +162,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			if (superClass.toString == "java.lang.Object") None else Some(superClass.tpe.toString)
 		}
 		
+		/*
 		def printApply (apply:Apply, i:Int) {
 			// if it's a call on the super class' constructor
 			val q = (for (s @ Select(qualifier, name) <- apply) yield qualifier).head
@@ -177,31 +178,15 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				p(apply.toString, i)
 			}
 		}
+		*/
 	
-		
+		/*
 		def printValDef (valdef:ValDef, i:Int) {
 			throw new Exception("not used")
 			p("/** @type " + getType(valdef.symbol) + " */", i)
 			p("var " + valdef.name + " = " + valdef.rhs + ";", i)
 		}
-		
-		def printIf (ifD:If, i:Int) {
-			p("if (" + ifD.cond + ") {", i)
-			//printTree(ifD.thenp, i+1)
-			p("} else {", i)
-			//printTree(ifD.elsep, i+1)
-			p("}", i)
-			
-			p("}", i) 
-		}
-		
-		@deprecated("Use the one that takes a string")
-		def getType (symbol:Symbol) = {
-			symbol.tpe.toString match {
-				case "Boolean" => "{boolean}"
-				case x:String => "{string}"
-			}
-		}
+		*/
 		
 		def getType (tpe:String) = tpe match {
 			case "Boolean" => "boolean"
@@ -214,19 +199,6 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		
 		def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg
 	
-		def p (code:{def toString:String}, indent:Int) {
-			for (i <- 1 to indent) add("\t")
-			add(code + "\n")
-		}
-		
-		def p (code:{def toString:String}) {
-			p(code, 0)
-		}
-		
-		def add (code:{def toString:String}) {
-			buffer.append(code)
-			//print(code)
-		}
 	}
 }
 

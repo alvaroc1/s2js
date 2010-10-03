@@ -23,7 +23,7 @@ object JsPrinter {
 		
 		case JsMethod (name, params, children) => {			
 			val jsdoc = doc(
-				params.map((p) => ("param", p.tpe+" " +p.name))
+				params.map((p) => ("param", "{"+p.tpe+"} " +p.name))
 			)
 			
 			// get return statement
@@ -34,13 +34,6 @@ object JsPrinter {
 				case JsVoid() => children.reverse.tail.reverse
 				case _ => children
 			}
-			
-			/*
-			val content = body match {
-				case l:List[JsTree] => l.map(print(_, i+1)).mkString("")
-				case t:JsTree => print(t, i+1)
-			}
-			*/
 			
 			val start = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
 			val middle = indent(
@@ -91,7 +84,7 @@ object JsPrinter {
 			val e = indent(print(elsep))
 			val last = "}\n"
 			
-			condition + body + elseline + e + last
+			condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
 		}
 		
 		case JsThis () => "this"
@@ -131,7 +124,7 @@ object JsPrinter {
 			val parent = c.superClass.map( (s) => ("extends", "{"+s.toString+"}") )
 			
 			val jsdoc = doc(
-				("constructor", "") :: params.map((p) => ("param", p.tpe+" " + p.name)) ++ parent 
+				("constructor", "") :: params.map((p) => ("param", "{"+p.tpe+"} " + p.name)) ++ parent 
 			)
 			
 			val sig = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
@@ -191,16 +184,7 @@ object JsPrinter {
 		}
 	}
 	
-	
-	/**
-	 * Indent a string [margin] number of times
-	 */
-	def indent (margin:Int)(line:String*) = {
-		line.map(("  "*margin)+_).mkString("\n") + "\n"
-	}
-	
 	def indent (text:String) = text.split("\n").map("  "+_).mkString("\n") + "\n"
-	
 	
 	def doc (annotations:List[Pair[String,String]]) = {		
 		"/**\n" + 
