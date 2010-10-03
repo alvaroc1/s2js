@@ -5,29 +5,24 @@ object JsPrinter {
 	/**
 	 * Print a JS AST
 	 */
-	def print (tree:JsTree, i:Int):String = tree match {
+	def print (tree:JsTree):String = tree match {
 		
-		case f @ JsSourceFile(path,name,classes) => classes.map(print(_, i)).mkString("\n")
+		case f @ JsSourceFile(path,name,classes) => classes.map(print).mkString("\n")
 		
-		case c @ JsClass(name, superClass, constructor, properties, methods) => {
-			val p = indent(i) _
-		
-			val provide = p("goog.provide('"+name+"');") + "\n"
+		case c @ JsClass(name, superClass, constructor, properties, methods) => {		
+			val provide = "goog.provide('"+name+"');\n\n"
 			
-			val const = printConstructor(c, constructor, i)
+			val const = printConstructor(c, constructor)
 			
-			val props = properties.map(printProp(c, _, i)).mkString("")
+			val props = properties.map(printProp(c, _)+"\n").mkString("")
 			
-			val methds = methods.map(print(_, i)).mkString("")
+			val methds = methods.map(print).mkString("")
 			
 			provide + const + props + methds
 		}
 		
-		case JsMethod (name, params, children) => {
-			// partially apply indent
-			val p = indent(i) _
-			
-			val jsdoc = doc(i) (
+		case JsMethod (name, params, children) => {			
+			val jsdoc = doc(
 				params.map((p) => ("param", p.tpe+" " +p.name))
 			)
 			
@@ -47,35 +42,42 @@ object JsPrinter {
 			}
 			*/
 			
-			val s = p(name + " = function (" + params.map(_.name).mkString(", ") + ") {") +
-				body.map(print(_, i+1)).mkString("") +
-				p("};") +
-				"\n"
+			val start = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
+			val middle = indent(
+				body.map(
+					(a) => a match {
+						// end invocations with semi-colon and newline
+						case a:JsApply => print(a) + ";\n"
+						case _ => print(a)
+					}
+				).mkString("")
+			)
+			val end = "};\n"
 				
-			jsdoc + s
+			jsdoc + start + middle + end
 		}
 		
 		case JsLiteral (value, tpe) => {
 			value
 		}
 		
-		case JsApply (JsSelect(qualifier, name), params) => {
-			indent(i) (
-				if (name.endsWith("_$eq")) {
-					qualifier+"."+name.substring(0, name.length-4) + " = " + params.map(print(_, i)).mkString("") + ";"
-				} else {
-					qualifier+"."+name+"(" + params.map(print(_, i)).mkString("") + ");"
-				}
-			)
+		// assignment
+		case JsApply (JsSelect(qualifier, name), params) if name.endsWith("_$eq") => {
+			qualifier + "." + name.substring(0, name.length-4) + " = " + params.map(print).mkString("")
+		}
+		
+		// not equals comparison
+		case JsApply (JsSelect(qualifier, name), params) if name == "$bang$eq" => {
+			qualifier + " != " + params.map(print).mkString("")
 		}
 		
 		// not sure if this one is necessary
 		case JsApply (fun, params) => {
-			print(fun, i) + "(" + params.map(print(_, i)).mkString("") + "); \n"
+			print(fun) + "(" + params.map(print).mkString("") + "); \n"
 		}
 		
 		case JsSelect (qualifier, name) => {
-			indent(i)(qualifier + "." + name)
+			qualifier + "." + name
 		}
 		
 		case JsIdent (name)  => {
@@ -83,11 +85,11 @@ object JsPrinter {
 		}
 		
 		case JsIf (cond, thenp, elsep) => {			
-			val condition = indent(i)("if (" + print(cond, i) + ") {")
-			val body = print(thenp, i+1)
-			val elseline = indent(i)("} else {")
-			val e = print(elsep, i+1)
-			val last = indent(i)("}")
+			val condition = "if (" + print(cond) + ") {\n"
+			val body = indent(print(thenp))
+			val elseline = "} else {\n"
+			val e = indent(print(elsep))
+			val last = "}\n"
 			
 			condition + body + elseline + e + last
 		}
@@ -103,14 +105,16 @@ object JsPrinter {
 				case _ => "/** @type {"+tpe+"} */ "
 			}
 			
-			val s = indent(i) (
-				"var "+id+" = " + tp + print(rhs, i)+";"
-			)
-			
-			s
+			"var "+id+" = " + tp + print(rhs)+";"
 		}
 		case JsBlock (children) => {
-			(for (child <- children) yield print(child, i)).mkString("")
+			children.map(
+				(a) => a match {
+					// end invocations with semi-colon and newline
+					case a:JsApply => print(a) + ";\n"
+					case _ => print(a)
+				}
+			).mkString("")
 		}
 		
 		case JsOther (clazz,children) => {
@@ -122,17 +126,15 @@ object JsPrinter {
 		case JsParam (name, tpe) => name
 	}
 	
-	def printConstructor (c:JsClass, const:JsConstructor, i:Int) = const match {
-		case JsConstructor(name, params, constructorBody, classBody) => {
-			val p = indent(i) _
-			
+	def printConstructor (c:JsClass, const:JsConstructor) = const match {
+		case JsConstructor(name, params, constructorBody, classBody) => {			
 			val parent = c.superClass.map( (s) => ("extends", "{"+s.toString+"}") )
 			
-			val jsdoc = doc(i)(
+			val jsdoc = doc(
 				("constructor", "") :: params.map((p) => ("param", p.tpe+" " + p.name)) ++ parent 
 			)
 			
-			val sig = p(name + " = function (" + params.map(_.name).mkString(", ") + ") {")
+			val sig = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
 			
 			// remove void return
 			val constructorBody2 = constructorBody.reverse.tail.reverse
@@ -140,10 +142,10 @@ object JsPrinter {
 			val body = constructorBody2 match {
 				case JsApply(fun, params) :: tail => {
 					val first = c.superClass match {
-						case Some(superClass) => indent(i+1) (c.superClass.get + ".call(this, " + params.map(print(_, i)).mkString("") + ");")
-						case None => print(JsApply(fun, params), i+1)
+						case Some(superClass) => c.superClass.get + ".call(this, " + params.map(print).mkString("") + ");\n"
+						case None => print(JsApply(fun, params))
 					}
-					val rest = tail.map(print(_, i+1)).mkString("") + "\n"
+					val rest = tail.map(print).mkString("\n") + "\n"
 					
 					first + rest
 				}
@@ -153,22 +155,18 @@ object JsPrinter {
 			//val body = constructorBody2.map(print(_, i+1)).mkString("") + "\n"
 			
 			val content = (for (child @ JsVar(id, tpe, rhs) <- classBody if !rhs.isInstanceOf[JsEmpty] && !rhs.isInstanceOf[JsLiteral]) yield {
-				indent(i+1)("this."+id+" = " + print(rhs, i))
+				"this."+id+" = " + print(rhs) + "\n"
 			}).mkString("")
 			
-			val close = p("};") 
+			val close = "};\n" 
 			val ext = c.superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")
 			
-			jsdoc + sig + body + content + close + ext + "\n"
+			jsdoc + sig + indent(body) + indent(content) + close + ext + "\n"
 		}
 	}
 	
-	def printProp (c:JsClass, prop:JsProperty, i:Int) = prop match {
-		case JsProperty (mods, name, tpt, rhs) => {
-			val p = indent(i) _
-			
-			
-			
+	def printProp (c:JsClass, prop:JsProperty) = prop match {
+		case JsProperty (mods, name, tpt, rhs) => {		
 			val docs = List(
 				//private
 				if (mods.isPrivate) Some(("private", "")) else None,
@@ -179,7 +177,7 @@ object JsPrinter {
 				// collapse 
 			).flatMap(_.toList.flatMap(List(_)))
 			
-			val jsdoc = doc(i)(docs)
+			val jsdoc = doc(docs)
 		
 			// right hand side
 			val r = rhs match {
@@ -187,7 +185,7 @@ object JsPrinter {
 				case _ => "null"
 			}
 			
-			val prop = p(c.name + ".prototype." + name + " = " + r + ";")
+			val prop = c.name + ".prototype." + name + " = " + r + ";\n"
 			
 			jsdoc + prop + "\n"
 		}
@@ -201,14 +199,13 @@ object JsPrinter {
 		line.map(("  "*margin)+_).mkString("\n") + "\n"
 	}
 	
+	def indent (text:String) = text.split("\n").map("  "+_).mkString("\n") + "\n"
 	
 	
-	def doc (margin:Int)(annotations:List[Pair[String,String]]) = {
-		val p = indent(margin) _
-		
-		p("/**") + 
-		annotations.map((a) => p(" * @"+a._1+" "+a._2)).mkString("") +
-		p(" */")
+	def doc (annotations:List[Pair[String,String]]) = {		
+		"/**\n" + 
+		annotations.map((a) => " * @"+a._1+" "+a._2+"\n").mkString("") +
+		" */\n"
 	}
 	
 }

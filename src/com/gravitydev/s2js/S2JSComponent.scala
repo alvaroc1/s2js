@@ -33,7 +33,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 	
 			// parseTree(unit.body, 0)
 			
-			println(JsPrinter.print(parseUnit(unit), 0))
+			println(JsPrinter.print(parseUnit(unit)))
 			
 			/*
 			var stream = new FileWriter(dir + "/" + name + ".js")
@@ -206,6 +206,9 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		def getType (tpe:String) = tpe match {
 			case "Boolean" => "boolean"
 			case "String" => "string"
+			case "java.lang.String" => "string"
+			case "browser.Element" => "Element"
+			case "Double" => "number"
 			case x:String => x
 		}
 		
