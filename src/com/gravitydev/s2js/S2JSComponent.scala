@@ -2,10 +2,12 @@ package com.gravitydev.s2js
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent
-
+import scala.collection.mutable.ListBuffer
 
 class S2JSComponent (val global:Global) extends PluginComponent {
 	import global._
+	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass }
+	import treeInfo.{ isSuperConstrCall }
 	
 	val runsAfter = List[String]("refchecks")
 	
@@ -13,82 +15,109 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		
 	val outputDir = "/home/alvaro/Desktop/s2js-output"
 		
+	def collect [T <: Tree] (tree: Tree)(pf: PartialFunction[Tree, T]): List[T] = {
+		val lb = new ListBuffer[T]
+		tree foreach (t => if (pf.isDefinedAt(t)) lb += pf(t))
+		lb.toList
+	}
+	
+	val comparisonMap = Map(
+		"$bang$eq" -> "!="
+	)
+		
 	def newPhase (prev:Phase) = new StdPhase(prev) {
 		
 		val buffer = new StringBuffer
 		
 		override def name = phaseName
 		
-		override def apply (unit:CompilationUnit) {
+		override def apply (unit: CompilationUnit) {
 			import java.io._
 		
-			//S2JSComponent.this.global.treeBrowser.browse(unit.body)
+			// S2JSComponent.this.global.treeBrowser.browse(unit.body)
 			
-			val path = getPackage(unit.body).replace('.', '/')
-			val name = unit.source.file.toString.split("/").reverse.head.toList.reverse.drop(6).reverse.mkString("").toLowerCase
+			// output paths
+			val path = unit.body.symbol.fullName.replace('.', '/')
+			val name = unit.source.file.name.stripSuffix(".scala").toLowerCase
 			val dir = outputDir + "/" + path
 			
 			// create the directories
 			new File(dir).mkdirs
-	
-			// parseTree(unit.body, 0)
 			
-			println(JsPrinter.print(parseUnit(unit)))
+			// transform to Js AST
+			lazy val parsedUnit = JsSourceFile(path, name, getClasses(unit.body))
 			
-			/*
+			// print and save
+			val code = JsPrinter print parsedUnit
+			
+			println(code)
+			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
-			writer.write(buffer.toString)
+			writer write code
 			writer.close()
-			*/
 		}
 		
-		def getPackage (tree:Tree) = tree match {
-			case PackageDef(pid,_) => pid.name
-		}
-
-		def parseUnit (unit:CompilationUnit) = {
-			val path = getPackage(unit.body).replace('.', '/').toString
-			val name = unit.source.file.toString.split("/").reverse.head.toList.reverse.drop(6).reverse.mkString("").toLowerCase
+		def inspect (t:Tree) {
+			val s = t.symbol
 			
-			JsSourceFile(path, name, getClasses(unit.body))
+			if (s != null) {
+				println("-----------------------------")
+				println("SYMBOL: " + s)
+				println("name: " + s.name)
+				println("hasDefault: " + s.hasDefault)
+				println("isGetterOrSetter: " + s.isGetterOrSetter)
+				println("isMethod: " + s.isMethod)
+				println("isMutable: " + s.isMutable)
+				println("isParamAccessor: " + s.isParamAccessor)
+				println("isParameter: " + s.isParameter)
+				println("isSourceMethod: " + s.isSourceMethod)
+				println("isSuperAccessor: " + s.isSuperAccessor)
+				println("isSynthetic: " + s.isSynthetic)
+				println("isLocal: " + s.isLocal)
+				println("-----------------------------")
+				println("")
+			}
 		}
 		
 		def getClasses (tree:Tree) = for (c @ ClassDef(_, _, _, _) <- tree.children) yield getClass(c)
 		
 		def getClass (c:Tree) = c match {
 			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {
-
-				val params = for (m @ ValDef(_, _, _, _) <- body; if m.toString.startsWith("<paramaccessor>")) yield m 
+				val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
 				
-				val properties = for (m @ ValDef(_, _, _, _) <- body; if !m.toString.startsWith("<paramaccessor>")) yield getProperty(c, m)
+				val params = primary.vparamss.flatten
 				
-				val constructors = for (const @ DefDef(mods,name,tparams,vparamss,tpt,rhs) <- body; if name.toString == "<init>") yield const
+				val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
 			
-				val methods = for (m @ DefDef(mods, _, _, _, _, _) <- body; if !mods.isAccessor && m.name.toString != "<init>") yield getMethod(c, m)
+				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
 				
 				JsClass(
 					c.symbol.tpe.toString,
 					getSuperClass(c),
-					getConstructor(c, constructors.head),
-					properties,
-					methods
+					getConstructor(c, primary),
+					properties map (getProperty(c, _)),
+					methods map (getMethod(c, _))
 				)
 			}
 		}
 		
-		def getConstructor (c:ClassDef, const:DefDef) = JsConstructor(
-			c.symbol.tpe.toString,
-			for (arg <- parseMethodArgs(const)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol.tpe.toString)),
-			for (child <- const.rhs.children) yield getJsTree (child),
-			for (child <- c.impl.body if !child.isInstanceOf[DefDef]) yield getJsTree(child)
-		)
+		def getConstructor (c:ClassDef, const:DefDef) = {
+			val params = const.vparamss.flatten map ((t) => JsParam(t.symbol.name.toString, getType(t.symbol)))
+			
+			JsConstructor(
+				c.symbol.tpe.toString,
+				params,
+				for (child <- const.rhs.children) yield getJsTree (child),
+				for (child <- c.impl.body if !child.isInstanceOf[DefDef]) yield getJsTree(child)
+			)
+		}
 		
 		def getMethod (c:ClassDef, method:DefDef) = {			
 			//S2JSComponent.this.global.treeBrowser.browse(method)
 			JsMethod(
 				c.impl.tpe.toString+".prototype."+method.name.toString,
-				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol.tpe.toString)),
+				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol)),
 				//for (child <- method.rhs.children) yield getJsTree (child)
 				List(getJsTree(method.rhs))
 			)
@@ -100,16 +129,37 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 					mods.isPrivate	
 				)
 				
-				JsProperty(jsmods, name.toString, "{"+getType(tpt.toString)+"}", getJsTree(rhs))
+				JsProperty(jsmods, name.toString, "{"+getType(tpt.symbol)+"}", getJsTree(rhs))
 			}
 		}
 		
 		def getJsTree (node:Tree):JsTree = node match {
 			
+			// property re-assignment
+			case a @ Apply(fun @ Select(qualifier, name), args) if name.toString.endsWith("_$eq") => {
+				
+				val select = JsSelect(
+					if (fun.symbol.isSourceMethod) "this" else qualifier.symbol.fullName, 
+					name.toString stripSuffix "_$eq", 
+					fun.symbol.isParamAccessor
+				)
+				
+				JsAssign(select, getJsTree(args.head))
+			}
+			
+			// comparison
+			case a @ Apply(fun @ Select(qualifier, name), args) if comparisonMap contains name.toString => {
+				JsComparison(
+					getJsTree(qualifier),
+					comparisonMap.getOrElse(name.toString, "huh?"),
+					getJsTree(args.head)
+				)
+			}
+			
 			case Apply(fun, args) => {
 				JsApply(getJsTree(fun), args.map(getJsTree))
 			}
-			case ValDef(mods,name,tpt,rhs) => {
+			case ValDef(mods,name,tpt,rhs) => {				
 				JsVar(name.toString, tpt.toString, (if (rhs.isEmpty) JsEmpty() else getJsTree(rhs)))
 			}
 			case b @ Block(stats,expr) => {
@@ -120,12 +170,14 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			// unit 
 			case Literal(Constant(())) => JsVoid()
 			
-			case Select(qualifier,name) => {
-				// check if calling member of self
-				val q = if (qualifier.toString.split('.').reverse.head == "this") qualifier.toString.split('.').tail.mkString(".")
-					else qualifier.toString
-					
-				JsSelect(q, name.toString)
+			case s @ Select(qualifier,name) => {
+				// for some reason symbol is null sometimes
+				val q = if (qualifier.symbol == null) qualifier.toString + "(NULL SYMBOL)" else qualifier.symbol.fullName
+				
+				// not sure about this
+				val q2 = if (s.symbol.isSourceMethod) "this" else q
+				
+				JsSelect(q2, name.toString, s.symbol.isParamAccessor)
 			}
 			
 			case This(qual) => {
@@ -188,13 +240,15 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		*/
 		
-		def getType (tpe:String) = tpe match {
-			case "Boolean" => "boolean"
-			case "String" => "string"
-			case "java.lang.String" => "string"
-			case "browser.Element" => "Element"
-			case "Double" => "number"
-			case x:String => x
+		def getType (symbol:Symbol) = symbol.tpe.typeSymbol match {
+			case BooleanClass 			=> "boolean"
+			case IntClass|DoubleClass	=> "number"
+			case StringClass 			=> "string"
+			
+			// closure built-in types, hack for right now
+			case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
+			
+			case x						=> x.tpe.toString
 		}
 		
 		def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg

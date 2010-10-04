@@ -54,27 +54,31 @@ object JsPrinter {
 			value
 		}
 		
-		// assignment
-		case JsApply (JsSelect(qualifier, name), params) if name.endsWith("_$eq") => {
-			qualifier + "." + name.substring(0, name.length-4) + " = " + params.map(print).mkString("")
-		}
-		
 		// not equals comparison
-		case JsApply (JsSelect(qualifier, name), params) if name == "$bang$eq" => {
+		case JsApply (JsSelect(qualifier, name, _), params) if name == "$bang$eq" => {
 			qualifier + " != " + params.map(print).mkString("")
 		}
 		
 		// not sure if this one is necessary
 		case JsApply (fun, params) => {
-			print(fun) + "(" + params.map(print).mkString("") + "); \n"
+			print(fun) + "(" + params.map(print).mkString(", ") + ");\n"
 		}
 		
-		case JsSelect (qualifier, name) => {
-			qualifier + "." + name
+		case JsSelect (qualifier, name, isParamAccessor) => {
+			// parameters don't need to be qualified
+			(if (!isParamAccessor) qualifier + "." else "") + name
 		}
 		
 		case JsIdent (name)  => {
 			name
+		}
+		
+		case JsAssign (lhs, rhs) => {
+			print(lhs) + " = " + print(rhs) + ";\n"
+		}
+		
+		case JsComparison (lhs, operator, rhs) => {
+			print(lhs) + " " + operator + " " + print(rhs)
 		}
 		
 		case JsIf (cond, thenp, elsep) => {			
@@ -145,11 +149,11 @@ object JsPrinter {
 				case _ => throw new Exception("what!")
 			}
 			
-			//val body = constructorBody2.map(print(_, i+1)).mkString("") + "\n"
-			
-			val content = (for (child @ JsVar(id, tpe, rhs) <- classBody if !rhs.isInstanceOf[JsEmpty] && !rhs.isInstanceOf[JsLiteral]) yield {
-				"this."+id+" = " + print(rhs) + "\n"
-			}).mkString("")
+			// get assignments that are not literal or empty
+			val content = classBody.collect({ case JsVar(id, tpe, rhs @ JsSelect(qualifier, name, isParamAccessor)) => {
+				// ommit 'this' qualifier
+				"this." + id + " = " + print(rhs) + "\n"
+			} }).mkString("")
 			
 			val close = "};\n" 
 			val ext = c.superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")

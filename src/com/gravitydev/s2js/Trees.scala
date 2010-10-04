@@ -16,10 +16,12 @@ case class JsOther (clazz:String, children:List[JsTree]) extends JsTree
 case class JsProperty (mods:JsModifiers, name:String, tpt:String, rhs:JsTree) extends JsTree
 
 case class JsParam (name:String, tpe:String) extends JsTree
-case class JsSelect (qualifier:String, name:String) extends JsTree
+case class JsSelect (qualifier:String, name:String, isParamAccessor:Boolean) extends JsTree
 case class JsIdent (name:String) extends JsTree
 case class JsThis () extends JsTree
 case class JsIf (cond:JsTree, thenp:JsTree, elsep:JsTree) extends JsTree
+case class JsAssign (lhs:JsTree, rhs:JsTree) extends JsTree
+case class JsComparison (lhs:JsTree, operator:String, rhs:JsTree) extends JsTree
 
 case class JsEmpty () extends JsTree
 
