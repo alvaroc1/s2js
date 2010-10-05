@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<classpath>
-	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="con" path="ch.epfl.lamp.sdt.launching.SCALA_CONTAINER"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
-	<classpathentry kind="lib" path="/home/alvaro/Desktop/eclipse/plugins/scala.tools.nsc_2.8.0.trunk-t20100725030658-gd60c4cdae1c6c3164c36ff5746e26611105146d3.jar" sourcepath="/home/alvaro/scala-src/scala-2.8.0.final-sources"/>
-	<classpathentry kind="output" path="bin"/>
-</classpath>
