@@ -51,16 +51,34 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	/** Iframe element that is only used for IE as a workaround to keep select-type */
 	private var bgIframeEl_ : Element = null
 	
+	/** Element for the title bar */
 	private var titleEl_ : Element = null
 	
+	/** Element for the text area of the title bar */
 	private var titleTextEl_ : Element = null
 	
+	/** Id of element fo the text area of the title bar */
+	private var titleId_ : String = null
+	
+	/** Element for the close box area of the title bar */
+	private var titleCloseEl_ : Element = null
+	
+	/** Element for the content area */
+	private var contentEl_ : Element = null
+	
+	/** Element for the button bar */
+	private var buttonEl_ : Element = _
+	
+	/** Sets the title */
 	def setTitle (title:String) {
 		title_ = title
 		if (titleTextEl_ != null) {
 			goog.dom.setTextContent(titleTextEl_, title)
 		}
 	}
+	
+	/** Gets the title */
+	def getTitle = title_
 }
 
 /*

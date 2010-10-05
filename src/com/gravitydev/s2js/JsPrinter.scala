@@ -1,5 +1,7 @@
 package com.gravitydev.s2js
 
+import scala.collection.mutable.ListBuffer
+
 object JsPrinter {
 	
 	/**
@@ -21,17 +23,20 @@ object JsPrinter {
 			provide + const + props + methds
 		}
 		
-		case JsMethod (name, params, children) => {			
-			val jsdoc = doc(
-				params.map((p) => ("param", "{"+p.tpe+"} " +p.name))
-			)
+		case JsMethod (name, params, children, ret) => {
+			val l = new ListBuffer[Pair[String,String]]()
+			
+			// jsdoc
+			params foreach ((p) => l += (("param", "{"+p.tpe+"} " + p.name)))
+			if (ret != "void") l += (("return", "{"+ret+"}"))
+			val jsdoc = doc(l.toList)
 			
 			// get return statement
-			val ret = children.reverse.head
+			val retStmt = children.reverse.head
 			
 			// remove return if void
-			val body = ret match {
-				case JsVoid() => children.reverse.tail.reverse
+			val body = retStmt match {
+				case JsVoid() => children.drop(1)
 				case _ => children
 			}
 			
@@ -39,6 +44,8 @@ object JsPrinter {
 			val middle = indent(
 				body.map(
 					(a) => a match {
+						// if it's the return statement
+						case a:JsSelect if a == retStmt => "return " + print(a) + ";\n"
 						// end invocations with semi-colon and newline
 						case a:JsApply => print(a) + ";\n"
 						case _ => print(a)
@@ -47,7 +54,7 @@ object JsPrinter {
 			)
 			val end = "};\n"
 				
-			jsdoc + start + middle + end
+			jsdoc + start + middle + end + "\n"
 		}
 		
 		case JsLiteral (value, tpe) => {

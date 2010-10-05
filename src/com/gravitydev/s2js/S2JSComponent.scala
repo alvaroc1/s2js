@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 class S2JSComponent (val global:Global) extends PluginComponent {
 	import global._
-	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass }
+	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass }
 	import treeInfo.{ isSuperConstrCall }
 	
 	val runsAfter = List[String]("refchecks")
@@ -118,13 +118,18 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			)
 		}
 		
-		def getMethod (c:ClassDef, method:DefDef) = {			
+		def getMethod (c:ClassDef, method:DefDef) = {
+			val tpe = method.tpt.symbol
+			
+			println("")
+			
 			//S2JSComponent.this.global.treeBrowser.browse(method)
 			JsMethod(
 				c.impl.tpe.toString+".prototype."+method.name.toString,
 				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol)),
 				//for (child <- method.rhs.children) yield getJsTree (child)
-				List(getJsTree(method.rhs))
+				List(getJsTree(method.rhs)),
+				getType(method.tpt.symbol)
 			)
 		}
 		
@@ -245,15 +250,25 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		*/
 		
-		def getType (symbol:Symbol) = symbol.tpe.typeSymbol match {
-			case BooleanClass 			=> "boolean"
-			case IntClass|DoubleClass	=> "number"
-			case StringClass 			=> "string"
+		def getType (symbol:Symbol) = {
+			val tpe = symbol.tpe.typeSymbol
 			
-			// closure built-in types, hack for right now
-			case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
+			println(symbol.tpe.toString)
 			
-			case x						=> x.tpe.toString
+			println("")
+			
+			symbol.tpe.typeSymbol match {
+			
+				case BooleanClass 			=> "boolean"
+				case IntClass|DoubleClass	=> "number"
+				case StringClass 			=> "string"
+				case UnitClass				=> "void"
+				
+				// closure built-in types, hack for right now
+				case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
+				
+				case x						=> x.tpe.toString
+			}
 		}
 		
 		def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg

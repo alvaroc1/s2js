@@ -3,7 +3,7 @@ package com.gravitydev.s2js
 trait JsTree
 case class JsSourceFile (path:String, name:String, classes:List[JsClass]) extends JsTree
 case class JsClass (name:String, superClass:Option[String], constructor:JsConstructor, properties:List[JsProperty], methods:List[JsMethod]) extends JsTree
-case class JsMethod (name:String, params:List[JsParam], children:List[JsTree]) extends JsTree
+case class JsMethod (name:String, params:List[JsParam], children:List[JsTree], ret:String) extends JsTree
 
 case class JsConstructor (name:String, params:List[JsParam], constructorBody:List[JsTree], classBody:List[JsTree]) extends JsTree
 
