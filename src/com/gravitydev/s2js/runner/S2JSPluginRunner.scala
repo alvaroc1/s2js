@@ -18,6 +18,7 @@ object S2JSPluginRunner {
     val settings = new Settings
     
     settings.classpath.tryToSet(List("bin"))
+    settings.d.tryToSet(List("bin"))
     
     val files = List(
     	"src/com/gravitydev/s2js/sample/Dialog.scala"

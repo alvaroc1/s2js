@@ -1,6 +1,6 @@
 # ignore bin
 bin
 /.classpath
-/.classpath
+/.scala_dependencies
 /.project
 /s2js.jar

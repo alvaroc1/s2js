@@ -10,7 +10,7 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	val useIframeMask_ = opt_useIframeMask
 	
 	/** Button set. Default: Ok/Cancel */
-	private var buttons_ = Dialog.ButtonSet.OK_CANCEL
+	//private var buttons_ = Dialog.ButtonSet.OK_CANCEL
 		
 	/** Focus handler. It will be initialized in enterDocument */
 	private val focusHandler_ : FocusHandler = null
@@ -33,7 +33,6 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	/** Dialog's title */
 	private var title_ = ""
 	
-	/*
 	/** Dialog's content (HTML) */
 	private var content_ = ""
 		
@@ -52,8 +51,6 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	/** Iframe element that is only used for IE as a workaround to keep select-type */
 	private var bgIframeEl_ : Element = null
 	
-	*/
-	
 	private var titleEl_ : Element = null
 	
 	private var titleTextEl_ : Element = null
@@ -66,6 +63,7 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	}
 }
 
+/*
 object Dialog {
 	
 	class ButtonSet (private val cls:String = goog.css.getCssName("test"))
@@ -74,3 +72,4 @@ object Dialog {
 		val OK_CANCEL = new ButtonSet
 	}
 }
+*/
