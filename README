@@ -5,6 +5,6 @@ Scala-to-Javascript compiler plugin that produces annotated javascript suitable 
 
 It is a work in progress, probably not usable yet.
 
-The easiest way to play with it (at least for me) is using eclipse. Edit the "outputDir" value in S2JSComponentJust and run S2JSPluginRunner. 
+The easiest way to play with it (at least for me) is using eclipse. Edit the "outputDir" value in S2JSComponent and run S2JSPluginRunner. 
 
 You should be able to do step-through debugging.

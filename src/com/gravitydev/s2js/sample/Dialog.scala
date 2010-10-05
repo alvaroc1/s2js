@@ -79,6 +79,52 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	
 	/** Gets the title */
 	def getTitle = title_
+	
+	/** Allows arbitrary HTML to be set in the content element */
+	def setContent (html:String) {
+		content_ = html
+		if (contentEl_ != null) {
+			contentEl_.innerHTML = html
+		}
+	}
+	
+	/** Gets the content HTML of the content element */
+	def getContent = content_
+	
+	/*
+	/** Renders if the DOM is not created */
+	private def renderIfNoDom_() {
+		if (getElement != null) {
+			// TODO(user): Ideally we'd only create the DOM, but many applications
+			// are requiring this behavior.  Eventually, it would be best if the
+			// element getters could return null if the elements have not been
+			// created.
+			render()
+		}
+	}
+	
+	/**
+	 * Returns the content element so that more complicated things can be done with
+	 * the content area. Renders if the DOM is not yet created.
+	 */
+	def getContentElement () = {
+		renderIfNoDom_()
+		contentEl_
+	}
+	
+	/**
+	 * Returns the content element so that more complicated things can be done with
+	 * the title. Renders if the DOM is not yet created
+	 */
+	def getTitleElement () = {
+		renderIfNoDom_()
+		titleEl_
+	}
+	
+	def render () {
+		// TODO
+	}
+	*/
 }
 
 /*

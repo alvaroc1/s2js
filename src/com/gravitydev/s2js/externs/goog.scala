@@ -1,6 +1,3 @@
-package browser {
-	class Element
-}
 
 package goog {
 	import browser._
@@ -20,10 +17,13 @@ package goog {
 }
 
 package goog.ui {
+	import browser._
 	
 	class Dialog (opt_class:String)
 	
-	class Component (opt_domHelper:goog.dom.DomHelper)
+	class Component (opt_domHelper:goog.dom.DomHelper) {
+		def getElement () : Element = null
+	}
 	
 	object Component {
 		class EventType

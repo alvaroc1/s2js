@@ -144,12 +144,13 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		
 		def getJsTree (node:Tree):JsTree = node match {
-			
+
 			// property re-assignment
 			case a @ Apply(fun @ Select(qualifier, name), args) if name.toString.endsWith("_$eq") => {
 				
 				val select = JsSelect(
-					if (fun.symbol.isSourceMethod) "this" else qualifier.symbol.fullName, 
+					// if it's local method, strip class name
+					if (fun.symbol.isSourceMethod) qualifier.toString.split('.').tail.mkString(".") else qualifier.symbol.fullName, 
 					name.toString stripSuffix "_$eq", 
 					fun.symbol.isParamAccessor
 				)
@@ -185,7 +186,8 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				val q = if (qualifier.symbol == null) qualifier.toString + "(NULL SYMBOL)" else qualifier.symbol.fullName
 				
 				// not sure about this
-				val q2 = if (s.symbol.isSourceMethod) "this" else q
+				// if it's a local method, strip the class name
+				val q2 = if (s.symbol.isSourceMethod) qualifier.toString.split('.').tail.mkString(".") else q
 				
 				JsSelect(q2, name.toString, s.symbol.isParamAccessor)
 			}
@@ -250,25 +252,16 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		*/
 		
-		def getType (symbol:Symbol) = {
-			val tpe = symbol.tpe.typeSymbol
+		def getType (symbol:Symbol) = symbol.tpe.typeSymbol match {
+			case BooleanClass 			=> "boolean"
+			case IntClass|DoubleClass	=> "number"
+			case StringClass 			=> "string"
+			case UnitClass				=> "void"
 			
-			println(symbol.tpe.toString)
+			// closure built-in types, hack for right now
+			case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
 			
-			println("")
-			
-			symbol.tpe.typeSymbol match {
-			
-				case BooleanClass 			=> "boolean"
-				case IntClass|DoubleClass	=> "number"
-				case StringClass 			=> "string"
-				case UnitClass				=> "void"
-				
-				// closure built-in types, hack for right now
-				case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
-				
-				case x						=> x.tpe.toString
-			}
+			case x						=> x.tpe.toString
 		}
 		
 		def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg
