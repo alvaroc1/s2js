@@ -22,7 +22,12 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 	}
 	
 	val comparisonMap = Map(
-		"$bang$eq" -> "!="
+		"$eq$eq"		-> "==",
+		"$bang$eq" 		-> "!=",
+		"$greater"		-> ">",
+		"$greater$eq" 	-> ">=",
+		"$less"			-> "<",
+		"$less$eq"		-> "<="
 	)
 		
 	def newPhase (prev:Phase) = new StdPhase(prev) {
