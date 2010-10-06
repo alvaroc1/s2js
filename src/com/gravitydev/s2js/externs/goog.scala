@@ -3,26 +3,43 @@ package goog {
 	import browser._
 	
 	object dom {
-	
 		def $ (id:String):Element = null
-		
-		class DomHelper 
-	
 		def setTextContent(el:Element, content:String) {}
+		
+		class DomHelper {
+			def insertSiblingBefore (el1:Element, el2:Element) {}
+		}
+		
+		object classes {
+			def add (el:Element, cls:String) {}
+			def remove (el:Element, cls:String) {}
+		}
 	}
 	
 	object css {
 		def getCssName (n:String) = "test"
 	}
+	
+	object style {
+		def setOpacity (el:Element, opacity:Double) {}
+	}
+	
+}
+
+package object goog {
+	def getCssName (el:String, name:String):String = ""
 }
 
 package goog.ui {
 	import browser._
+	import goog.dom.DomHelper
 	
 	class Dialog (opt_class:String)
 	
-	class Component (opt_domHelper:goog.dom.DomHelper) {
+	class Component (opt_domHelper:DomHelper) {
 		def getElement () : Element = null
+		def getDomHelper () : DomHelper = null
+		def isInDocument () : Boolean = false
 	}
 	
 	object Component {
@@ -66,5 +83,7 @@ package goog.events {
 }
 
 package goog.fx {
-	class Dragger
+	class Dragger {
+		def dispose () {}
+	}
 }

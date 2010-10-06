@@ -1,8 +1,16 @@
+/**
+ * Porting of goog.ui.Dialog to scala as an exercise to make sure
+ * the transformation is working correctly.
+ * Work in progress.
+ * @see http://closure-library.googlecode.com/svn/docs/closure_goog_ui_dialog.js.source.html
+ */
+
 package gravity
 
 import goog.ui.Component
 import goog.dom.DomHelper
 import goog.events.FocusHandler
+import goog.fx.Dragger
 import browser.Element
 
 class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelper) extends Component (opt_domHelper) {
@@ -91,7 +99,6 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	/** Gets the content HTML of the content element */
 	def getContent = content_
 	
-	/*
 	/** Renders if the DOM is not created */
 	private def renderIfNoDom_() {
 		if (getElement != null) {
@@ -107,7 +114,7 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	 * Returns the content element so that more complicated things can be done with
 	 * the content area. Renders if the DOM is not yet created.
 	 */
-	def getContentElement () = {
+	def getContentElement = {
 		renderIfNoDom_()
 		contentEl_
 	}
@@ -116,15 +123,108 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	 * Returns the content element so that more complicated things can be done with
 	 * the title. Renders if the DOM is not yet created
 	 */
-	def getTitleElement () = {
+	def getTitleElement = {
 		renderIfNoDom_()
 		titleEl_
+	}
+	
+	/**
+	 * Returns the title text element so that more complicated things can be done
+	 * with the text of the title. Renders if the DOM is not yet created.
+	 */
+	def getTitleTextElement = {
+		renderIfNoDom_()
+		titleTextEl_
+	}
+	
+	/**
+	 * Returns the title close element so that more complicated things can be done
+	 * with the close area of the title. Renders if the DOM is not yet created.
+	 */
+	def getTitleCloseElement = {
+		renderIfNoDom_()
+		titleCloseEl_
+	}
+	
+	def getButtonElement = {
+		renderIfNoDom_()
+		buttonEl_
+	}
+	
+	def getDialogElement = {
+		renderIfNoDom_()
+		getElement
+	}
+	
+	def getBackgroundElement = {
+		renderIfNoDom_()
+		bgEl_
+	}
+	
+	def getBackgroundElementOpacity = backgroundElementOpacity_
+	
+	def setBackgroundElementOpacity (opacity:Double) {
+		backgroundElementOpacity_ = opacity
+		
+		if (bgEl_ != null) {
+			goog.style.setOpacity(bgEl_, backgroundElementOpacity_)
+		}
+	}
+
+	def setModal (modal:Boolean) {
+		modal_ = modal
+		manageBackgroundDom_()
+		val dom = getDomHelper
+		
+		if (isInDocument && modal && isVisible) {
+			if (bgIframeEl_ != null) {
+				dom.insertSiblingBefore(bgIframeEl_, getElement)
+			}
+			if (bgEl_ != null) {
+				dom.insertSiblingBefore(bgEl_, getElement)
+			}
+		}
+		resizeBackground_()
+	}
+	
+	def getModal = modal_
+	
+	// this might be a slight problem
+	def $getClass = class_
+	
+	def setDraggable (draggable:Boolean) {
+		draggable_ = draggable
+		
+		if (draggable_ && dragger_ == null && getElement != null) {
+			dragger_ = createDraggableTitleDom_
+		} else if (!draggable_ && dragger_ != null) {
+			if (getElement != null) {
+				goog.dom.classes.remove(titleEl_, goog.getCssName(class_, "title-draggable"))
+			}
+			dragger_.dispose
+			dragger_ = null
+		}
+	}
+	
+	def createDraggableTitleDom_ () : Dragger = {
+		val dragger = new Dragger ()
+		goog.dom.classes.add(titleEl_, goog.getCssName(class_, "title-draggable"))
+		dragger
 	}
 	
 	def render () {
 		// TODO
 	}
-	*/
+	
+	def manageBackgroundDom_ () {
+		// TODO
+	}
+	
+	def resizeBackground_ () {
+		// TODO
+	}
+	
+	def isVisible = visible_
 }
 
 /*

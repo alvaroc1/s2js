@@ -21,13 +21,17 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		lb.toList
 	}
 	
+	// TODO figure out how to do parenthesized comparisons
 	val comparisonMap = Map(
 		"$eq$eq"		-> "==",
 		"$bang$eq" 		-> "!=",
 		"$greater"		-> ">",
 		"$greater$eq" 	-> ">=",
 		"$less"			-> "<",
-		"$less$eq"		-> "<="
+		"$less$eq"		-> "<=",
+		
+		// should probably have a separate map for these
+		"$amp$amp"		-> "&&"
 	)
 		
 	def newPhase (prev:Phase) = new StdPhase(prev) {
@@ -63,6 +67,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			writer.close()
 		}
 		
+		// for debugging
 		def inspect (t:Tree) {
 			val s = t.symbol
 			
@@ -120,8 +125,6 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		
 		def getMethod (c:ClassDef, method:DefDef) = {
 			val tpe = method.tpt.symbol
-			
-			println("")
 			
 			//S2JSComponent.this.global.treeBrowser.browse(method)
 			JsMethod(
@@ -185,9 +188,18 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				// for some reason symbol is null sometimes
 				val q = if (qualifier.symbol == null) qualifier.toString + "(NULL SYMBOL)" else qualifier.symbol.fullName
 				
-				// not sure about this
-				// if it's a local method, strip the class name
-				val q2 = if (s.symbol.isSourceMethod) qualifier.toString.split('.').tail.mkString(".") else q
+				// if it's qualified by a local variable
+				val q2 = if (qualifier.symbol != null && qualifier.symbol.isLocal) {
+					qualifier.toString.split('.').last
+				} else {
+					// if it's a local method, strip the class name
+					// not sure how else to do this :(
+					if (qualifier.toString.split('.') contains "this") {
+						qualifier.toString.split('.').tail.mkString(".")
+					} else {
+						q
+					}
+				}
 				
 				JsSelect(q2, name.toString, s.symbol.isParamAccessor)
 			}

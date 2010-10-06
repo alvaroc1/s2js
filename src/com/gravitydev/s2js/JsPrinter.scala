@@ -23,34 +23,17 @@ object JsPrinter {
 			provide + const + props + methds
 		}
 		
-		case JsMethod (name, params, children, ret) => {
-			val l = new ListBuffer[Pair[String,String]]()
-			
+		case m @ JsMethod (name, params, children, ret) => {
 			// jsdoc
+			val l = new ListBuffer[Pair[String,String]]()
 			params foreach ((p) => l += (("param", "{"+p.tpe+"} " + p.name)))
 			if (ret != "void") l += (("return", "{"+ret+"}"))
 			val jsdoc = doc(l.toList)
 			
-			// get return statement
-			val retStmt = children.reverse.head
-			
-			// remove return if void
-			val body = retStmt match {
-				case JsVoid() => children.drop(1)
-				case _ => children
-			}
-			
 			val start = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
 			val middle = indent(
-				body.map(
-					(a) => a match {
-						// if it's the return statement
-						case a:JsSelect if a == retStmt => "return " + print(a) + ";\n"
-						// end invocations with semi-colon and newline
-						case a:JsApply => print(a) + ";\n"
-						case _ => print(a)
-					}
-				).mkString("")
+				// weird looking code, will have to refactor later
+				if (ret == "void") children.map(printWithSemiColon).mkString("") else printWithReturn(m)
 			)
 			val end = "};\n"
 				
@@ -68,7 +51,7 @@ object JsPrinter {
 		
 		// not sure if this one is necessary
 		case JsApply (fun, params) => {
-			print(fun) + "(" + params.map(print).mkString(", ") + ");\n"
+			print(fun) + "(" + params.map(print).mkString(", ") + ")"
 		}
 		
 		case JsSelect (qualifier, name, isParamAccessor) => {
@@ -90,9 +73,9 @@ object JsPrinter {
 		
 		case JsIf (cond, thenp, elsep) => {			
 			val condition = "if (" + print(cond) + ") {\n"
-			val body = indent(print(thenp))
+			val body = indent(printWithSemiColon(thenp))
 			val elseline = "} else {\n"
-			val e = indent(print(elsep))
+			val e = indent(printWithSemiColon(elsep))
 			val last = "}\n"
 			
 			condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
@@ -109,16 +92,10 @@ object JsPrinter {
 				case _ => "/** @type {"+tpe+"} */ "
 			}
 			
-			"var "+id+" = " + tp + print(rhs)+";"
+			"var "+id+" = " + tp + print(rhs)+";\n"
 		}
 		case JsBlock (children) => {
-			children.map(
-				(a) => a match {
-					// end invocations with semi-colon and newline
-					case a:JsApply => print(a) + ";\n"
-					case _ => print(a)
-				}
-			).mkString("")
+			children.map(printWithSemiColon).mkString("")
 		}
 		
 		case JsOther (clazz,children) => {
@@ -141,15 +118,15 @@ object JsPrinter {
 			val sig = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
 			
 			// remove void return
-			val constructorBody2 = constructorBody.reverse.tail.reverse
+			val constructorBody2 = constructorBody.dropRight(1)
 			
 			val body = constructorBody2 match {
 				case JsApply(fun, params) :: tail => {
 					val first = c.superClass match {
 						case Some(superClass) => c.superClass.get + ".call(this, " + params.map(print).mkString("") + ");\n"
-						case None => print(JsApply(fun, params))
+						case None => printWithSemiColon(JsApply(fun, params))
 					}
-					val rest = tail.map(print).mkString("\n") + "\n"
+					val rest = tail.map(printWithSemiColon).mkString("\n") + "\n"
 					
 					first + rest
 				}
@@ -159,13 +136,28 @@ object JsPrinter {
 			// get assignments that are not literal or empty
 			val content = classBody.collect({ case JsVar(id, tpe, rhs @ JsSelect(qualifier, name, isParamAccessor)) => {
 				// ommit 'this' qualifier
-				"this." + id + " = " + print(rhs) + "\n"
+				"this." + id + " = " + print(rhs) + ";\n"
 			} }).mkString("")
 			
 			val close = "};\n" 
 			val ext = c.superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")
 			
 			jsdoc + sig + indent(body) + indent(content) + close + ext + "\n"
+		}
+	}
+	
+	def getLastStatement (tree:JsTree) : JsTree = tree match {
+		case JsMethod(_, _, children, _) => {
+			children.last match {
+				case a:JsBlock => getLastStatement(a)
+				case a => a
+			}
+		}
+		case JsBlock (children) => {
+			children.last match {
+				case a:JsBlock => getLastStatement(a)
+				case a => a
+			}
 		}
 	}
 	
@@ -201,6 +193,22 @@ object JsPrinter {
 		"/**\n" + 
 		annotations.map((a) => " * @"+a._1+" "+a._2+"\n").mkString("") +
 		" */\n"
+	}
+	
+	def printWithSemiColon (tree : JsTree): String = tree match {
+		case a:JsApply => print(a) + ";\n"
+		case a:JsSelect => print(a) + ";\n"
+		case x => print(x)
+	}
+	
+	def printWithReturn (tree : JsTree) : String = tree match {
+		case b:JsMethod => {
+			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
+		}
+		case b:JsBlock => {
+			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
+		}
+		case x => "return " + printWithSemiColon (x)
 	}
 	
 }
