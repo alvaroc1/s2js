@@ -18,7 +18,7 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	val useIframeMask_ = opt_useIframeMask
 	
 	/** Button set. Default: Ok/Cancel */
-	//private var buttons_ = Dialog.ButtonSet.OK_CANCEL
+	private var buttons_ = Dialog.ButtonSet.OK_CANCEL
 		
 	/** Focus handler. It will be initialized in enterDocument */
 	private val focusHandler_ : FocusHandler = null
@@ -75,7 +75,7 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	private var contentEl_ : Element = null
 	
 	/** Element for the button bar */
-	private var buttonEl_ : Element = _
+	private var buttonEl_ : Element = null
 	
 	/** Sets the title */
 	def setTitle (title:String) {
@@ -227,13 +227,11 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	def isVisible = visible_
 }
 
-/*
 object Dialog {
-	
 	class ButtonSet (private val cls:String = goog.css.getCssName("test"))
 	
 	object ButtonSet {
 		val OK_CANCEL = new ButtonSet
 	}
 }
-*/
+

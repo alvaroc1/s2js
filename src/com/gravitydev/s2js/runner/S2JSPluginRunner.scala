@@ -21,10 +21,8 @@ object S2JSPluginRunner {
     settings.d.tryToSet(List("bin"))
     
     val files = List(
-    	"src/com/gravitydev/s2js/sample/Dialog.scala"
-    	//"/home/alvaro/scala-workspace/test/src/gravity/Dialog.scala"
-    	/*"/home/alvaro/scala-workspace/test/src/gravity/Test.scala",
-    	"/home/alvaro/scala-workspace/test/src/gravity/UserList.scala"*/
+    	//"src/com/gravitydev/s2js/sample/Dialog.scala"
+    	"src/com/gravitydev/s2js/sample/Test.scala"
     )
 
     val command = new CompilerCommand(files, settings) {
@@ -89,14 +87,17 @@ extends Global(settings, reporter) {
     phasesSet += analyzer.namerFactory      //   note: types are there because otherwise
     phasesSet += analyzer.packageObjects    //   consistency check after refchecks would fail.
     phasesSet += analyzer.typerFactory
+    
+
+    for (phase <- new S2JSPlugin(this).components) {
+      phasesSet += phase
+    }
+    
     phasesSet += superAccessors             // add super accessors
     phasesSet += pickler                    // serialize symbol tables
     phasesSet += refchecks                  // perform reference and override checking, translate nested objects
     // phasesSet += devirtualize               // Desugar virtual classes
 
-    for (phase <- new S2JSPlugin(this).components) {
-      phasesSet += phase
-    }
     
     
     phasesSet += uncurry                    // uncurry, translate function values to anonymous classes

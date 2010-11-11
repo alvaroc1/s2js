@@ -4,6 +4,8 @@ package goog {
 	
 	object dom {
 		def $ (id:String):Element = null
+		def getElement (id:String) : Element = null
+		
 		def setTextContent(el:Element, content:String) {}
 		
 		class DomHelper {

@@ -9,7 +9,8 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass }
 	import treeInfo.{ isSuperConstrCall }
 	
-	val runsAfter = List[String]("refchecks")
+	//val runsAfter = List[String]("refchecks")
+	val runsAfter = List[String]("typer")
 	
 	val phaseName = "s2js"
 		
@@ -53,13 +54,24 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			// create the directories
 			new File(dir).mkdirs
 			
+			// get the package
+			var pkg = ""
+			unit.body match {
+				case PackageDef(pid,_) => pkg = pid.toString
+			}
+			
 			// transform to Js AST
-			lazy val parsedUnit = JsSourceFile(path, name, getClasses(unit.body))
+			lazy val parsedUnit = JsSourceFile(path, name, getClasses(unit.body, pkg))
+			
+			// process ast
+			val processed = processAST( parsedUnit )
 			
 			// print and save
-			val code = JsPrinter print parsedUnit
+			val code = JsPrinter print processed
 			
 			println(code)
+			
+			println(JsAstPrinter print parsedUnit)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -68,10 +80,10 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		
 		// for debugging
-		def inspect (t:Tree) {
-			val s = t.symbol
-			
-			if (s != null) {
+		def inspect (t:Tree):Unit = inspect(t.symbol)
+		
+		def inspect (s:Symbol) {
+			if (s!=null) {
 				println("-----------------------------")
 				println("SYMBOL: " + s)
 				println("name: " + s.name)
@@ -90,10 +102,10 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			}
 		}
 		
-		def getClasses (tree:Tree) = for (c @ ClassDef(_, _, _, _) <- tree.children) yield getClass(c)
+		def getClasses (tree:Tree, pkg:String) = for (c @ ClassDef(_, _, _, _) <- tree.children) yield getClass(c, pkg:String)
 		
-		def getClass (c:Tree) = c match {
-			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {
+		def getClass (c:Tree, pkg:String) = c match {
+			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {				
 				val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
 				
 				val params = primary.vparamss.flatten
@@ -101,10 +113,11 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
 			
 				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
-				
+
 				JsClass(
 					c.symbol.tpe.toString,
-					getSuperClass(c),
+					pkg,
+					for (Select(qualifier, name) <- parents) yield JsSelect( getJsTree(qualifier), name.toString),
 					getConstructor(c, primary),
 					properties map (getProperty(c, _)),
 					methods map (getMethod(c, _))
@@ -113,13 +126,26 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		}
 		
 		def getConstructor (c:ClassDef, const:DefDef) = {
-			val params = const.vparamss.flatten map ((t) => JsParam(t.symbol.name.toString, getType(t.symbol)))
+			//val params = const.vparamss.flatten map ((t) => JsParam(t.symbol.name.toString, getType(t.symbol)))
+			/*
+			val params = const.vparamss.flatten map ((t) => {
+				JsParam(t.symbol.name.toString, getType(t.symbol))
+			})
+			*/
+			
+			val params = for (ValDef(mods, name, tpt, rhs) <- const.vparamss.flatten) yield {
+				JsParam(name.toString, getType(tpt))
+			}
+			
+			//S2JSComponent.this.global.treeBrowser.browse(const.rhs);
 			
 			JsConstructor(
 				c.symbol.tpe.toString,
 				params,
 				for (child <- const.rhs.children) yield getJsTree (child),
-				for (child <- c.impl.body if !child.isInstanceOf[DefDef]) yield getJsTree(child)
+				
+				// skip methods and param accessors (not needed in js)
+				for (child <- c.impl.body if !child.isInstanceOf[DefDef] && !child.symbol.isParamAccessor) yield getJsTree(child)
 			)
 		}
 		
@@ -129,11 +155,30 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			//S2JSComponent.this.global.treeBrowser.browse(method)
 			JsMethod(
 				c.impl.tpe.toString+".prototype."+method.name.toString,
-				for (arg <- parseMethodArgs(method)) yield JsParam(arg.symbol.name.toString, getType(arg.symbol)),
-				//for (child <- method.rhs.children) yield getJsTree (child)
+				for (ValDef(mods, name, tpt, rhs) <- method.vparamss.flatten) yield JsParam(name.toString, getType(tpt)),
 				List(getJsTree(method.rhs)),
 				getType(method.tpt.symbol)
 			)
+		}
+		
+		def getType (typeTree:Tree) = {
+			// get the original Select (for some reason it is now a TypeTree)
+			// i hate casting
+			typeTree.asInstanceOf[TypeTree].original match {
+				case Select(Ident(qname), name) if qname.toString == "scala" => JsBuiltInType(
+					name.toString match {
+						case "Boolean" => JsBuiltInType.BooleanT
+						case "Double" => JsBuiltInType.NumberT
+					}
+				)
+				case Select(Select(This(qual), name), t) if name.toString == "Predef" => JsBuiltInType(
+					// should use types instead of strings
+					t.toString match {
+						case "String" => JsBuiltInType.StringT
+					}
+				)
+				case x => getJsTree( x )
+			}
 		}
 		
 		def getProperty (c:ClassDef, prop:ValDef) = prop match {
@@ -151,11 +196,12 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			// property re-assignment
 			case a @ Apply(fun @ Select(qualifier, name), args) if name.toString.endsWith("_$eq") => {
 				
-				val select = JsSelect(
-					// if it's local method, strip class name
-					if (fun.symbol.isSourceMethod) qualifier.toString.split('.').tail.mkString(".") else qualifier.symbol.fullName, 
-					name.toString stripSuffix "_$eq", 
-					fun.symbol.isParamAccessor
+				val n = name.toString stripSuffix "_$eq"
+			
+				val select = JsSelect (
+					getJsTree(qualifier), 
+					// remove the suffix
+					name.toString stripSuffix "_$eq"
 				)
 				
 				JsAssign(select, getJsTree(args.head))
@@ -170,10 +216,52 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				)
 			}
 			
+			// package methods
+			case Select(Select(Ident(_), name), _) if name.toString == "package" => {
+				println("test")
+				JsVoid()
+			}
+			
+			// new (instantiation)
+			case Select( New( Select( q, name ) ), _ ) => {
+				JsNew( JsSelect( getJsTree(q), name.toString ) )
+			}
+			
+			// application
+			case Apply(Select(qualifier, name), args) => {
+				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), args map getJsTree)
+			}
+			
+			// select (parent != Apply)
+			case s @ Select(qualifier,name) => s match {
+				// if this select is a method, and it wasn't caught on the previous case
+				// it is no-parameter-list application
+				// wrap on apply
+				case s if !s.symbol.isGetterOrSetter && s.symbol.isMethod => {
+					JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method), Nil)
+				}
+				case s => {
+					//inspect(s)
+					JsSelect(
+						getJsTree(qualifier), 
+						name.toString,
+						s match {
+							case s if (s.symbol.isGetterOrSetter) => JsSelectType.Prop
+							case s if (s.symbol.isParamAccessor) => JsSelectType.ParamAccessor
+							case _ => JsSelectType.Other
+						}
+					)
+				}
+			}
+			
+			/*
 			case Apply(fun, args) => {
 				JsApply(getJsTree(fun), args.map(getJsTree))
 			}
-			case ValDef(mods,name,tpt,rhs) => {				
+			*/
+			
+			case v @ ValDef(mods,name,tpt,rhs) => {
+				//inspect(v)
 				JsVar(name.toString, tpt.toString, (if (rhs.isEmpty) JsEmpty() else getJsTree(rhs)))
 			}
 			case b @ Block(stats,expr) => {
@@ -183,26 +271,6 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			
 			// unit 
 			case Literal(Constant(())) => JsVoid()
-			
-			case s @ Select(qualifier,name) => {
-				// for some reason symbol is null sometimes
-				val q = if (qualifier.symbol == null) qualifier.toString + "(NULL SYMBOL)" else qualifier.symbol.fullName
-				
-				// if it's qualified by a local variable
-				val q2 = if (qualifier.symbol != null && qualifier.symbol.isLocal) {
-					qualifier.toString.split('.').last
-				} else {
-					// if it's a local method, strip the class name
-					// not sure how else to do this :(
-					if (qualifier.toString.split('.') contains "this") {
-						qualifier.toString.split('.').tail.mkString(".")
-					} else {
-						q
-					}
-				}
-				
-				JsSelect(q2, name.toString, s.symbol.isParamAccessor)
-			}
 			
 			case This(qual) => {
 				JsThis()
@@ -214,9 +282,13 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			
 			case Ident(name) => JsIdent (name.toString)
 			
-			case c @ ClassDef(_,_,_,_) => getClass(c)
+			//case c @ ClassDef(_,_,_,_) => getClass(c)
 			
 			case If(cond, thenp, elsep) => JsIf(getJsTree(cond), getJsTree(thenp), getJsTree(elsep))
+			
+			case Super (qual, mix) => {
+				JsSuper()
+			}
 			
 			case t:Tree => {
 				JsOther(t.getClass.toString, for (child <- t.children) yield getJsTree(child))
@@ -276,7 +348,65 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			case x						=> x.tpe.toString
 		}
 		
-		def parseMethodArgs (method:DefDef) = for (arg <- method.children; if arg.isInstanceOf[ValDef]) yield arg
+		def processAST (tree:JsTree):JsTree = {
+			tree match {
+				case JsSelect(JsSelect(JsIdent(_), pkg, _), name, t) if pkg.toString == "package" => {
+					
+					JsVoid()
+				}
+				case x => visitAST(x, processAST)
+			}
+		}
+		
+		// method that can apply a function to all children of a Node
+		def visitAST (tree:JsTree, fn:(JsTree)=>JsTree):JsTree = tree match {
+			case JsSourceFile(path,name,classes) => JsSourceFile(
+				path, 
+				name, 
+				classes map (fn(_).asInstanceOf[JsClass]) 
+			)
+			case JsClass(name,pkg,parents,constructor,properties,methods) => JsClass(
+				name,
+				pkg,
+				parents map (fn(_).asInstanceOf[JsSelect]),
+				fn(constructor).asInstanceOf[JsConstructor],
+				properties map (fn(_).asInstanceOf[JsProperty]),
+				methods map (fn(_).asInstanceOf[JsMethod])
+			)
+			case JsConstructor(name,params,constructorBody,classBody) => JsConstructor(
+				name,
+				params map (fn(_).asInstanceOf[JsParam]),
+				constructorBody map fn,
+				classBody map fn
+			)
+			case JsApply(fun,params) => JsApply(
+				fn(fun),
+				params map fn
+			)
+			case JsSelect(qualifier,name,t) => JsSelect(
+				fn(qualifier),
+				name,
+				t
+			)
+			case JsMethod(name,params,children,ret) => JsMethod(
+				name,
+				params map (fn(_).asInstanceOf[JsParam]),
+				children map fn,
+				ret
+			)
+			case JsBlock(children) => JsBlock(
+				children map fn	
+			)
+			case x:JsSuper => x
+			case x:JsVoid => x
+			case x:JsIdent => x
+			case x:JsLiteral => x
+			case x => {
+				println(x)
+				
+				x
+			}
+		}
 	
 	}
 }

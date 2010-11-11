@@ -1,130 +1,186 @@
 package com.gravitydev.s2js
 
 import scala.collection.mutable.ListBuffer
+import StringUtil._
 
 object JsPrinter {
 	
 	/**
 	 * Print a JS AST
 	 */
-	def print (tree:JsTree):String = tree match {
-		
-		case f @ JsSourceFile(path,name,classes) => classes.map(print).mkString("\n")
-		
-		case c @ JsClass(name, superClass, constructor, properties, methods) => {		
-			val provide = "goog.provide('"+name+"');\n\n"
+	def print (tree:JsTree):String = {
+		tree match {
 			
-			val const = printConstructor(c, constructor)
-			
-			val props = properties.map(printProp(c, _)+"\n").mkString("")
-			
-			val methds = methods.map(print).mkString("")
-			
-			provide + const + props + methds
-		}
-		
-		case m @ JsMethod (name, params, children, ret) => {
-			// jsdoc
-			val l = new ListBuffer[Pair[String,String]]()
-			params foreach ((p) => l += (("param", "{"+p.tpe+"} " + p.name)))
-			if (ret != "void") l += (("return", "{"+ret+"}"))
-			val jsdoc = doc(l.toList)
-			
-			val start = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
-			val middle = indent(
-				// weird looking code, will have to refactor later
-				if (ret == "void") children.map(printWithSemiColon).mkString("") else printWithReturn(m)
-			)
-			val end = "};\n"
+			case f @ JsSourceFile(path,name,classes) => {
+				// provides
+				val provides = (for (JsClass(name,_,_,_,_,_) <- classes) yield "goog.provide('"+name+"');\n").mkString("") + "\n"
 				
-			jsdoc + start + middle + end + "\n"
-		}
-		
-		case JsLiteral (value, tpe) => {
-			value
-		}
-		
-		// not equals comparison
-		case JsApply (JsSelect(qualifier, name, _), params) if name == "$bang$eq" => {
-			qualifier + " != " + params.map(print).mkString("")
-		}
-		
-		// not sure if this one is necessary
-		case JsApply (fun, params) => {
-			print(fun) + "(" + params.map(print).mkString(", ") + ")"
-		}
-		
-		case JsSelect (qualifier, name, isParamAccessor) => {
-			// parameters don't need to be qualified
-			(if (!isParamAccessor) qualifier + "." else "") + name
-		}
-		
-		case JsIdent (name)  => {
-			name
-		}
-		
-		case JsAssign (lhs, rhs) => {
-			print(lhs) + " = " + print(rhs) + ";\n"
-		}
-		
-		case JsComparison (lhs, operator, rhs) => {
-			print(lhs) + " " + operator + " " + print(rhs)
-		}
-		
-		case JsIf (cond, thenp, elsep) => {			
-			val condition = "if (" + print(cond) + ") {\n"
-			val body = indent(printWithSemiColon(thenp))
-			val elseline = "} else {\n"
-			val e = indent(printWithSemiColon(elsep))
-			val last = "}\n"
-			
-			condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
-		}
-		
-		case JsThis () => "this"
-		
-		case JsVoid () => "{void}"
-		
-		case JsVar (id,tpe,rhs) => {
-			// only annotate type for non-literals
-			val tp = rhs match {
-				case l:JsLiteral => ""
-				case _ => "/** @type {"+tpe+"} */ "
+				// requires
+				// find all JsSelect
+				val reqs = findRequires(tree).toSet.map( (id:String) => "goog.require('"+id+"');\n" ).mkString("") + "\n"
+				
+				// classes
+				val content = classes.map(print).mkString("\n") 
+				
+				provides + reqs + content
 			}
 			
-			"var "+id+" = " + tp + print(rhs)+";\n"
+			case c @ JsClass(name, pkg, superClass, constructor, properties, methods) => {
+				
+				val const = printConstructor(c, constructor)
+				
+				val props = properties.map(printProp(c, _)+"\n").mkString("")
+				
+				val methds = methods.map(print).mkString("")
+				
+				const + props + methds
+			}
+			
+			case m @ JsMethod (name, params, children, ret) => {
+				// jsdoc
+				val l = new ListBuffer[Pair[String,String]]()
+				params foreach ((p) => l += (("param", "{"+ print(p.tpe) +"} " + p.name)))
+				if (ret != "void") l += (("return", "{"+ret+"}"))
+				val jsdoc = doc(l.toList)
+				
+				val start = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
+				val middle = indent(
+					// weird looking code, will have to refactor later
+					if (ret == "void") children.map(printWithSemiColon).mkString("") else printWithReturn(m)
+				)
+				val end = "};\n"
+					
+				jsdoc + start + middle + end + "\n"
+			}
+			
+			case JsLiteral (value, tpe) => {
+				value
+			}
+			
+			case JsNew ( s @ JsSelect(qualifier, name, _) ) => "new " + print(s)
+			
+			/*
+			// not equals comparison
+			case JsApply (JsSelect(qualifier, name, _), params) if name == "$bang$eq" => {
+				qualifier + " != " + params.map(print).mkString("")
+			}
+			*/
+			
+			// not sure if this one is necessary
+			case JsApply (fun, params) => {
+				print(fun) + "(" + params.map(print).mkString(", ") + ")"
+			}
+			
+			/* SELECTS */
+			// predef
+			case JsSelect(JsSelect(JsThis(),"Predef",_),name,_) => {
+				name match {
+					case "String" => "string"
+					case x => x
+				}
+			}
+			
+			// other
+			case JsSelect (qualifier, name, t) => {
+				val s = qualifier match {
+					case s @ JsSelect(q, n, _) => {
+						print(s)+"."+name
+					}
+					case JsIdent(n) => n+"."+name
+					case JsThis() => "this."+name
+					case x => {
+						println(x)
+						
+						name
+					}
+				}
+				
+				s
+			}
+			
+			case JsIdent (name)  => {
+				name
+			}
+			
+			case JsAssign (lhs, rhs) => {
+				print(lhs) + " = " + print(rhs) + ";\n"
+			}
+			
+			case JsComparison (lhs, operator, rhs) => {
+				print(lhs) + " " + operator + " " + print(rhs)
+			}
+			
+			case JsIf (cond, thenp, elsep) => {			
+				val condition = "if (" + print(cond) + ") {\n"
+				val body = indent(printWithSemiColon(thenp))
+				val elseline = "} else {\n"
+				val e = indent(printWithSemiColon(elsep))
+				val last = "}\n"
+				
+				condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
+			}
+			
+			case JsThis () => "this"
+			
+			case JsVoid () => "" //"{void}"
+			
+			case JsVar (id,tpe,rhs) => {
+				/* probably not necessary to annotate variables
+				// only annotate type for non-literals
+				val tp = rhs match {
+					case l:JsLiteral => ""
+					case _ => "/** @type {"+tpe+"} */ "
+				}
+				*/
+				
+				"var "+id+" = " + print(rhs)+";\n"
+			}
+			case JsBlock (children) => {
+				children.map(printWithSemiColon).mkString("")
+			}
+			
+			case JsOther (clazz,children) => {
+				"## "+clazz+" ##"
+			}
+			
+			case JsEmpty () => "EMPTY"
+			
+			case JsParam (name, tpe) => name
+			
+			case JsBuiltInType (t) => t match {
+				case JsBuiltInType.StringT => "string"
+				case JsBuiltInType.BooleanT => "boolean"
+				case JsBuiltInType.NumberT => "number"
+			}
 		}
-		case JsBlock (children) => {
-			children.map(printWithSemiColon).mkString("")
-		}
-		
-		case JsOther (clazz,children) => {
-			"## "+clazz+" ##"
-		}
-		
-		case JsEmpty () => "EMPTY"
-		
-		case JsParam (name, tpe) => name
 	}
 	
 	def printConstructor (c:JsClass, const:JsConstructor) = const match {
-		case JsConstructor(name, params, constructorBody, classBody) => {			
-			val parent = c.superClass.map( (s) => ("extends", "{"+s.toString+"}") )
+		case JsConstructor(name, params, constructorBody, classBody) => {
+			val superClass = c.parents match {
+				case Nil => None
+				case x => Some(print(x.head))
+			}
+			
+			val parent = superClass.map( (s) => ("extends", "{"+s+"}") )
 			
 			val jsdoc = doc(
-				("constructor", "") :: params.map((p) => ("param", "{"+p.tpe+"} " + p.name)) ++ parent 
+				("constructor", "") :: params.map((p) => ("param", "{"+ print(p.tpe) +"} " + p.name)) ++ parent 
 			)
 			
 			val sig = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
 			
+			/*			
 			// remove void return
 			val constructorBody2 = constructorBody.dropRight(1)
 			
 			val body = constructorBody2 match {
 				case JsApply(fun, params) :: tail => {
-					val first = c.superClass match {
-						case Some(superClass) => c.superClass.get + ".call(this, " + params.map(print).mkString("") + ");\n"
-						case None => printWithSemiColon(JsApply(fun, params))
+					// the first one is always a call to the super constructor, 
+					// even if there isn't one
+					val first = superClass match {
+						case Some(s) => s + ".call(this, " + params.map(print).mkString(", ") + ");\n"
+						case None => ""//printWithSemiColon(JsApply(fun, params))
 					}
 					val rest = tail.map(printWithSemiColon).mkString("\n") + "\n"
 					
@@ -134,13 +190,32 @@ object JsPrinter {
 			}
 			
 			// get assignments that are not literal or empty
-			val content = classBody.collect({ case JsVar(id, tpe, rhs @ JsSelect(qualifier, name, isParamAccessor)) => {
+			val content = classBody.collect({ case JsVar(id, tpe, rhs @ JsSelect(_, _)) => {
 				// ommit 'this' qualifier
 				"this." + id + " = " + print(rhs) + ";\n"
 			} }).mkString("")
+			*/
+			
+			val body = constructorBody.map(_ match {
+				// if calling the super constructor
+				case JsApply( JsSelect( JsSuper(), "<init>", _ ), params) => {
+					// if there is a superclass
+					superClass.map(_+".call(this" + (if (params.length>0) ", " + params.map(print).mkString(", ") else "") + ");").mkString("")
+				}
+				case x => print(x)
+				
+			}).mkString("\n")
+			
+			// get assignments that are not literal or empty
+			// class variables must be prefixed with "this."
+			val content = classBody.collect({
+				case JsVar(id, tpe, rhs @ JsSelect(_,_,_)) => {
+					"this."+id+" = " + print(rhs)+";"
+				}
+			}).mkString("\n") + "\n"
 			
 			val close = "};\n" 
-			val ext = c.superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")
+			val ext = superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")
 			
 			jsdoc + sig + indent(body) + indent(content) + close + ext + "\n"
 		}
@@ -187,20 +262,21 @@ object JsPrinter {
 		}
 	}
 	
-	def indent (text:String) = text.split("\n").map("  "+_).mkString("\n") + "\n"
-	
 	def doc (annotations:List[Pair[String,String]]) = {		
 		"/**\n" + 
 		annotations.map((a) => " * @"+a._1+" "+a._2+"\n").mkString("") +
 		" */\n"
 	}
 	
-	def printWithSemiColon (tree : JsTree): String = tree match {
-		case a:JsApply => print(a) + ";\n"
-		case a:JsSelect => print(a) + ";\n"
-		case x => print(x)
+	def printWithSemiColon (tree : JsTree): String = {
+		tree match {
+			case a:JsApply => print(a) + ";\n"
+			case a:JsSelect => print(a) + ";\n"
+			case a:JsIdent => print(a) + ";\n"
+			case x => print(x)
+		}
 	}
-	
+		
 	def printWithReturn (tree : JsTree) : String = tree match {
 		case b:JsMethod => {
 			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
@@ -209,6 +285,54 @@ object JsPrinter {
 			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
 		}
 		case x => "return " + printWithSemiColon (x)
+	}
+	
+	def findRequires (tree : JsTree) : List[String] = {
+		def findInList (l : List[JsTree]) = l flatMap findRequires
+		
+		tree match {
+			case JsSourceFile(_,_,classes) => findInList(classes)
+			case JsClass(_,_,parents,JsConstructor(_,_,constructorBody,classBody),_,methods) => findInList(parents) ::: findInList(constructorBody) ::: findInList(classBody) ::: findInList(methods)
+			case JsMethod(_,params, children,_) => params:::children flatMap findRequires //(params flatMap findRequires) ::: (children flatMap findRequires)
+			case JsBlock(children) => children flatMap findRequires
+			case JsVar(_,_,rhs) => findRequires(rhs)
+			
+			// ignore super calls
+			case JsApply(JsSelect(JsSuper(),_,_),_) => Nil
+			
+			case JsApply(qual,_) => {
+				findRequires(qual)
+			}
+			case JsNew(s) => findRequires(s)
+			
+			case JsParam (_, tpe) => findRequires(tpe)
+			
+			// methods on "object"s
+			case JsSelect( s @ JsSelect(_,_,_), _, JsSelectType.Method ) => List(print(s))
+			
+			// params
+			case JsSelect(_,_,JsSelectType.ParamAccessor) => Nil
+			
+			// members
+			case JsSelect(JsThis(), _, _) => Nil
+			
+			// predef
+			case JsSelect(JsSelect(JsThis(), "Predef", _), _, _) => Nil
+			
+			// scala (predef)
+			case JsSelect(JsIdent("scala"),_,_) => Nil
+			
+			case x:JsSelect => {
+				
+				List(print(x))
+			}
+			case JsVoid() => Nil
+			
+			case x => {
+				println("Search for selects? "+x.getClass)
+				Nil
+			}
+		}
 	}
 	
 }
