@@ -54,9 +54,10 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsMethod (name, params, children, ret) => {
+		case JsMethod (owner, name, params, children, ret) => {
 			"JsMethod(\n" +
 			indent(
+				"owner: " + print(owner) + "\n" +
 				"name: " + name + "\n" +
 				"params: " + params + "\n" +
 				"children: " + printList(children) + "\n" +
@@ -77,6 +78,41 @@ object JsAstPrinter {
 				"cond: " + cond + "\n" +
 				"then: " + then + "\n" +
 				"else: " + then + "\n" 
+			) +
+			")"
+		}
+		
+		case JsVar (id, tpe, rhs) => {
+			"JsVar(\n" +
+			indent(
+				"id: " + id + "\n" +
+				"tpe: " + tpe + "\n" +
+				"rhs: " + print(rhs) + "\n"
+			) +
+			")"
+		}
+		case JsTypeApply (fun, args) => {
+			"JsTypeApply(\n" +
+			indent(
+				"fun: " + print(fun) + "\n" +
+				"args: " + printList(args) + "\n"
+			) +
+			")"
+		}
+		case JsAssign (lhs, rhs) => {
+			"JsAssign(\n" +
+			indent(
+				"lhs: " + print(lhs) + "\n" +
+				"rhs: " + print(rhs) + "\n" 
+			) +
+			")"
+		}
+		case JsModule (owner, name, body) => {
+			"JsModule(\n" +
+			indent(
+				"owner: " + print(owner) + "\n" +
+				"name: " + name + "\n" +
+				"body: " + printList(body) + "\n"
 			) +
 			")"
 		}

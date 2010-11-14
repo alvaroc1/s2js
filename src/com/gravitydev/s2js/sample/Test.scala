@@ -1,10 +1,9 @@
-package gravity;
-
-import goog._
-import goog.dom
+package gravity
 
 class Test {
-	def run () {
-		getCssName("test", "test")
-	}
+	def run () {}
+}
+
+object Test {
+	class Event extends goog.events.Event 
 }

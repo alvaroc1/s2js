@@ -1,22 +1,23 @@
 package com.gravitydev.s2js
 
 trait JsTree 
-case class JsSourceFile (path:String, name:String, classes:List[JsClass]) extends JsTree
+case class JsSourceFile (path:String, name:String, classes:List[JsTree]) extends JsTree
 
-case class JsClass (name:String, pkg:String, parents:List[JsSelect], constructor:JsConstructor, properties:List[JsProperty], methods:List[JsMethod]) extends JsTree
+case class JsClass (owner:JsTree, name:String, parents:List[JsSelect], constructor:JsConstructor, properties:List[JsProperty], methods:List[JsTree]) extends JsTree
 
+case class JsModule (owner:JsTree, name:String, body:List[JsTree]) extends JsTree
 
-case class JsMethod (name:String, params:List[JsParam], children:List[JsTree], ret:String) extends JsTree
+case class JsMethod (owner:JsTree, name:String, params:List[JsParam], children:List[JsTree], ret:JsTree) extends JsTree
 
 case class JsConstructor (name:String, params:List[JsParam], constructorBody:List[JsTree], classBody:List[JsTree]) extends JsTree
 
-case class JsVar (id:String, tpe:String, rhs:JsTree) extends JsTree
+case class JsVar (id:String, tpe:JsTree, rhs:JsTree) extends JsTree
 case class JsApply (fun:JsTree, params:List[JsTree]) extends JsTree
 case class JsBlock (children:List[JsTree]) extends JsTree
 case class JsLiteral (value:String, tpe:String) extends JsTree
 case class JsVoid () extends JsTree
 case class JsOther (clazz:String, children:List[JsTree]) extends JsTree
-case class JsProperty (mods:JsModifiers, name:String, tpt:String, rhs:JsTree) extends JsTree
+case class JsProperty (mods:JsModifiers, name:String, tpt:JsTree, rhs:JsTree) extends JsTree
 
 case class JsParam (name:String, tpe:JsTree) extends JsTree
 
@@ -34,6 +35,16 @@ case class JsNew (tpt:JsSelect) extends JsTree
 
 case class JsSuper () extends JsTree
 
+case class JsTypeApply (fun:JsTree, params:List[JsTree]) extends JsTree
+
+case class JsMap (elements:List[JsMapElement]) extends JsTree
+
+case class JsMapElement(key:String, value:JsTree) extends JsTree
+
+case class JsPredef () extends JsTree
+
+case class JsUnaryOp (subject:JsTree, op:String) extends JsTree
+
 case class JsModifiers (
 	isPrivate:Boolean
 )
@@ -47,5 +58,5 @@ object JsSelectType extends Enumeration {
 
 object JsBuiltInType extends Enumeration {
 	type JsBuiltInType = Value
-	val StringT, BooleanT, NumberT = Value
+	val AnyT, StringT, BooleanT, NumberT, UnknownT = Value
 }

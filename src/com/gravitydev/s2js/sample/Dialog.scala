@@ -77,6 +77,8 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	/** Element for the button bar */
 	private var buttonEl_ : Element = null
 	
+	private var tabCatcherEl_ : Element = null
+	
 	/** Sets the title */
 	def setTitle (title:String) {
 		title_ = title
@@ -207,18 +209,97 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 	}
 	
 	def createDraggableTitleDom_ () : Dragger = {
-		val dragger = new Dragger ()
+		val dragger = new Dragger (getElement, titleEl_)
 		goog.dom.classes.add(titleEl_, goog.getCssName(class_, "title-draggable"))
 		dragger
+	}
+	
+	def getDraggable = draggable_
+	
+	def createDom () {
+		manageBackgroundDom_()
+		
+		val dom = getDomHelper
+		
+		titleTextEl_ = dom.createDom("span", goog.getCssName(class_, "title-text"), title_)
+		titleCloseEl_ = dom.createDom("span", goog.getCssName(class_, "title-close"))
+		
+		titleEl_ = dom.createDom(
+			"div",
+			Map("className"->goog.getCssName(class_, "title"), "id"->getId),
+			titleTextEl_,
+			titleCloseEl_
+		)
+		
+		contentEl_ = dom.createDom("div", goog.getCssName(class_, "content"))
+		
+		buttonEl_ = dom.createDom("div", goog.getCssName(class_, "buttons"))
+		
+		tabCatcherEl_ = dom.createDom("span", Map("tabIndex"->0))
+		
+		setElementInternal(
+			dom.createDom(
+				"div",
+				Map("className" -> class_, "tabIndex" -> 0),
+				titleEl_,
+				contentEl_,
+				buttonEl_,
+				tabCatcherEl_
+			)
+		)
+		
+		titleId_ = titleEl_.id
+		goog.dom.a11y.setRole(getElement, "dialog")
+		goog.dom.a11y.setState(getElement, "labelledby", titleId_)
+		
+		// If setContent() was called before createDom(), make sure the inner HTML of
+		// the content elmenet is initialized
+		if (this.content_ != null) {
+			contentEl_.innerHTML = content_
+		}
+		goog.style.showElement(getElement, false)
+		
+		if (buttons_ != null) {
+			buttons_.attachToElement(buttonEl_)
+		}
+	}
+	
+	/** Creates and disposes of the DOM for background mask elements. */
+	def manageBackgroundDom_ () {
+		if (useIframeMask_ && modal_ && bgIframeEl_ == null) {
+		    // IE renders the iframe on top of the select elements while still
+		    // respecting the z-index of the other elements on the page.  See
+		    // http://support.microsoft.com/kb/177378 for more information.
+		    // Flash and other controls behave in similar ways for other browsers
+			bgIframeEl_ = goog.dom.iframe.createBlank(getDomHelper)
+			bgIframeEl_.className = goog.getCssName(class_, "bg")
+			goog.style.showElement(bgIframeEl_, false)
+			goog.style.setOpacity(bgIframeEl_, 0)
+			
+		// Removes the iframe mask if it exists and we don't want it to
+		} else if ((!useIframeMask_ || !modal_) && bgIframeEl_ != null) {
+			goog.dom.removeNode(bgIframeEl_)
+			bgIframeEl_ = null
+		}
+		
+		// Create the backgound mask, initialize its opacity, and make sure it's
+		// hidden.
+		if (modal_ && bgEl_ == null) {
+			bgEl_ = getDomHelper.createDom("div", goog.getCssName(class_, "bg"))
+			goog.style.setOpacity(bgEl_, backgroundElementOpacity_)
+			goog.style.showElement(bgEl_, false)
+				
+		// Removes the background mask if it exists and we don't want it to
+		} else if (!modal_ && bgEl_ != null) {
+			goog.dom.removeNode(bgEl_)
+			bgEl_ = null
+		}
 	}
 	
 	def render () {
 		// TODO
 	}
 	
-	def manageBackgroundDom_ () {
-		// TODO
-	}
 	
 	def resizeBackground_ () {
 		// TODO
@@ -228,7 +309,11 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 }
 
 object Dialog {
-	class ButtonSet (private val cls:String = goog.css.getCssName("test"))
+	class ButtonSet (opt_domHelper:DomHelper = goog.dom.getDomHelper) extends goog.structs.Map {
+		def attachToElement (el:Element) {
+			
+		}
+	}
 	
 	object ButtonSet {
 		val OK_CANCEL = new ButtonSet

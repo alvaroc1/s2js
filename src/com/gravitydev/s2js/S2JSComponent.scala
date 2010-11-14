@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 class S2JSComponent (val global:Global) extends PluginComponent {
 	import global._
-	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass }
+	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass }
 	import treeInfo.{ isSuperConstrCall }
 	
 	//val runsAfter = List[String]("refchecks")
@@ -30,9 +30,8 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 		"$greater$eq" 	-> ">=",
 		"$less"			-> "<",
 		"$less$eq"		-> "<=",
-		
-		// should probably have a separate map for these
-		"$amp$amp"		-> "&&"
+		"$amp$amp"		-> "&&",
+		"$bar$bar"		-> "||"
 	)
 		
 	def newPhase (prev:Phase) = new StdPhase(prev) {
@@ -61,17 +60,23 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			}
 			
 			// transform to Js AST
-			lazy val parsedUnit = JsSourceFile(path, name, getClasses(unit.body, pkg))
+			lazy val parsedUnit = getJsSourceFile(unit.body, name)
 			
-			// process ast
-			val processed = processAST( parsedUnit )
+			val cleaned = clean( parsedUnit )
+			
+			val transformed = transform( cleaned )
 			
 			// print and save
-			val code = JsPrinter print processed
+			val code = JsPrinter print transformed
 			
 			println(code)
 			
+			println("======== BEFORE PROCESSING ======")
 			println(JsAstPrinter print parsedUnit)
+			println("======== AFTER CLEANING =========")
+			println(JsAstPrinter print cleaned)
+			println("======== AFTER TRANSFORMING =====")
+			println(JsAstPrinter print transformed)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -102,29 +107,6 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			}
 		}
 		
-		def getClasses (tree:Tree, pkg:String) = for (c @ ClassDef(_, _, _, _) <- tree.children) yield getClass(c, pkg:String)
-		
-		def getClass (c:Tree, pkg:String) = c match {
-			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {				
-				val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
-				
-				val params = primary.vparamss.flatten
-				
-				val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
-			
-				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
-
-				JsClass(
-					c.symbol.tpe.toString,
-					pkg,
-					for (Select(qualifier, name) <- parents) yield JsSelect( getJsTree(qualifier), name.toString),
-					getConstructor(c, primary),
-					properties map (getProperty(c, _)),
-					methods map (getMethod(c, _))
-				)
-			}
-		}
-		
 		def getConstructor (c:ClassDef, const:DefDef) = {
 			//val params = const.vparamss.flatten map ((t) => JsParam(t.symbol.name.toString, getType(t.symbol)))
 			/*
@@ -134,7 +116,7 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			*/
 			
 			val params = for (ValDef(mods, name, tpt, rhs) <- const.vparamss.flatten) yield {
-				JsParam(name.toString, getType(tpt))
+				JsParam(name.toString, getType(tpt.symbol))
 			}
 			
 			//S2JSComponent.this.global.treeBrowser.browse(const.rhs);
@@ -149,35 +131,30 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			)
 		}
 		
-		def getMethod (c:ClassDef, method:DefDef) = {
-			val tpe = method.tpt.symbol
-			
-			//S2JSComponent.this.global.treeBrowser.browse(method)
+		def getMethod (method:DefDef) = {
 			JsMethod(
-				c.impl.tpe.toString+".prototype."+method.name.toString,
-				for (ValDef(mods, name, tpt, rhs) <- method.vparamss.flatten) yield JsParam(name.toString, getType(tpt)),
+				getType(method.symbol.owner),
+				method.name.toString,
+				for (ValDef(mods, name, tpt, rhs) <- method.vparamss.flatten) yield JsParam(name.toString, getType(tpt.symbol)),
 				List(getJsTree(method.rhs)),
 				getType(method.tpt.symbol)
 			)
 		}
 		
-		def getType (typeTree:Tree) = {
-			// get the original Select (for some reason it is now a TypeTree)
-			// i hate casting
-			typeTree.asInstanceOf[TypeTree].original match {
-				case Select(Ident(qname), name) if qname.toString == "scala" => JsBuiltInType(
-					name.toString match {
-						case "Boolean" => JsBuiltInType.BooleanT
-						case "Double" => JsBuiltInType.NumberT
-					}
-				)
-				case Select(Select(This(qual), name), t) if name.toString == "Predef" => JsBuiltInType(
-					// should use types instead of strings
-					t.toString match {
-						case "String" => JsBuiltInType.StringT
-					}
-				)
-				case x => getJsTree( x )
+		/** Get a symbol's type as a JsTree (JsSelect or JsBuiltInType) */
+		def getType (typeTree:Symbol):JsTree = {
+			import JsBuiltInType._
+			
+			typeTree match {
+				case StringClass => JsBuiltInType(StringT)
+				case AnyClass => JsBuiltInType(AnyT)
+				case BooleanClass => JsBuiltInType(BooleanT)
+				case IntClass|DoubleClass => JsBuiltInType(NumberT)
+				
+				// construct the JsSelect AST from the symbol
+				// stop at the root
+				case x if x.owner.name.toString == "<root>" => JsIdent(x.name.toString)
+				case x => JsSelect( getType(x.owner), x.name.toString )
 			}
 		}
 		
@@ -186,14 +163,67 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				val jsmods = JsModifiers(
 					mods.isPrivate	
 				)
+				JsProperty(jsmods, name.toString, getType(tpt.symbol), getJsTree(rhs))
+			}
+		}
+		
+		def getJsSourceFile (p:Tree, name:String) = p match {
+			case PackageDef(pid, stats) => {
+				val path = p.symbol.fullName.replace('.', '/')
 				
-				JsProperty(jsmods, name.toString, "{"+getType(tpt.symbol)+"}", getJsTree(rhs))
+				JsSourceFile(path, name, 
+					stats.map(_ match {
+						// discard imports
+						case t:Import => null
+						
+						case x => getJsTree(x)
+						
+					}).filter(_ != null)
+				)
 			}
 		}
 		
 		def getJsTree (node:Tree):JsTree = node match {
 
+			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {				
+				val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
+				
+				val params = primary.vparamss.flatten
+				
+				val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
+			
+				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
+
+				JsClass(
+					getType(c.symbol.owner),
+					c.symbol.name.toString,
+					for (Select(qualifier, name) <- parents) yield JsSelect( getJsTree(qualifier), name.toString),
+					getConstructor(c, primary),
+					properties map (getProperty(c, _)),
+					methods map getJsTree
+				)
+			}
+			
+			case m @ ModuleDef (mods, name, Template(parents, self, body)) => {
+				JsModule(
+					getType(m.symbol.owner), 
+					name.toString, 
+					body map getJsTree
+				)
+			}
+			
+			case m @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
+				JsMethod(
+					getType(m.symbol.owner),
+					name.toString,
+					for (ValDef(mods, name, tpt, rhs) <- vparamss.flatten) yield JsParam(name.toString, getType(tpt.symbol)),
+					List(getJsTree(rhs)),
+					getType(tpt.symbol)
+				)
+			}
+
 			// property re-assignment
+			// TODO: move to transform
 			case a @ Apply(fun @ Select(qualifier, name), args) if name.toString.endsWith("_$eq") => {
 				
 				val n = name.toString stripSuffix "_$eq"
@@ -207,27 +237,25 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				JsAssign(select, getJsTree(args.head))
 			}
 			
-			// comparison
-			case a @ Apply(fun @ Select(qualifier, name), args) if comparisonMap contains name.toString => {
-				JsComparison(
-					getJsTree(qualifier),
-					comparisonMap.getOrElse(name.toString, "huh?"),
-					getJsTree(args.head)
-				)
-			}
-			
 			// package methods
 			case Select(Select(Ident(_), name), _) if name.toString == "package" => {
 				println("test")
 				JsVoid()
 			}
 			
+			/* do i need this one? probably not, we can collapse this in the transformations
 			// new (instantiation)
 			case Select( New( Select( q, name ) ), _ ) => {
 				JsNew( JsSelect( getJsTree(q), name.toString ) )
 			}
+			*/
+			//case New ( Select (q, name) ) => {
+			case New ( select ) => {
+				//JsNew( JsSelect( getJsTree(q), name.toString) )
+				JsNew( getJsTree(select).asInstanceOf[JsSelect] )
+			}
 			
-			// application
+			// application (select)
 			case Apply(Select(qualifier, name), args) => {
 				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), args map getJsTree)
 			}
@@ -254,15 +282,9 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				}
 			}
 			
-			/*
-			case Apply(fun, args) => {
-				JsApply(getJsTree(fun), args.map(getJsTree))
-			}
-			*/
-			
 			case v @ ValDef(mods,name,tpt,rhs) => {
 				//inspect(v)
-				JsVar(name.toString, tpt.toString, (if (rhs.isEmpty) JsEmpty() else getJsTree(rhs)))
+				JsVar(name.toString, getType(tpt.symbol), (if (rhs.isEmpty) JsEmpty() else getJsTree(rhs)))
 			}
 			case b @ Block(stats,expr) => {
 				//println(b)
@@ -290,6 +312,21 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 				JsSuper()
 			}
 			
+			case Apply (select, args) => {
+				
+				JsApply(
+					getJsTree(select), args map getJsTree
+				)
+			}
+			
+			case TypeApply(s, args) => {
+				JsTypeApply(getJsTree(s), args map getJsTree)
+			}
+			
+			case t @ TypeTree () => {
+				getType(t.symbol)
+			}
+			
 			case t:Tree => {
 				JsOther(t.getClass.toString, for (child <- t.children) yield getJsTree(child))
 			}
@@ -310,101 +347,75 @@ class S2JSComponent (val global:Global) extends PluginComponent {
 			if (superClass.toString == "java.lang.Object") None else Some(superClass.tpe.toString)
 		}
 		
-		/*
-		def printApply (apply:Apply, i:Int) {
-			// if it's a call on the super class' constructor
-			val q = (for (s @ Select(qualifier, name) <- apply) yield qualifier).head
-			
-			//p("Q: "+q.toString+", class: "+apply.symbol.enclClass.fullName)
-			
-			if (q.toString.endsWith("super")) {
-				val params = for (param <- apply.args) yield param;
-				p(apply.symbol.enclClass.fullName + ".call(this" + (if (params.length>0) ", " else "") + params.map(_.toString).mkString(", ") + ");", i)
-			
-			} else {
-				
-				p(apply.toString, i)
+		def clean (tree:JsTree):JsTree = {
+			tree match {
+				// collapse application of package methods
+				case JsSelect(JsSelect(JsIdent(id), pkg, _), name, t) if pkg.toString == "package" => {
+					JsSelect(JsIdent(id), name, t)
+				}
+				// remove extra select on instantiations
+				case JsSelect(JsNew(tpe), name, t) => {
+					JsNew( JsASTUtil.visitAST(tpe, clean).asInstanceOf[JsSelect] )
+				}
+				// collapse predefs selections
+				case JsSelect(JsThis(), "Predef", _) => {
+					JsPredef()
+				}
+				case x => JsASTUtil.visitAST(x, clean)
 			}
 		}
-		*/
-	
-		/*
-		def printValDef (valdef:ValDef, i:Int) {
-			throw new Exception("not used")
-			p("/** @type " + getType(valdef.symbol) + " */", i)
-			p("var " + valdef.name + " = " + valdef.rhs + ";", i)
-		}
-		*/
 		
-		def getType (symbol:Symbol) = symbol.tpe.typeSymbol match {
-			case BooleanClass 			=> "boolean"
-			case IntClass|DoubleClass	=> "number"
-			case StringClass 			=> "string"
-			case UnitClass				=> "void"
-			
-			// closure built-in types, hack for right now
-			case x if x.tpe.toString.startsWith("browser.") => x.tpe.toString.substring(8)
-			
-			case x						=> x.tpe.toString
-		}
-		
-		def processAST (tree:JsTree):JsTree = {
+		def transform (tree:JsTree):JsTree = {
 			tree match {
-				case JsSelect(JsSelect(JsIdent(_), pkg, _), name, t) if pkg.toString == "package" => {
-					
+				// maps
+				case JsApply( JsTypeApply( JsApply( JsSelect( JsSelect ( JsPredef(), "Map", _), "apply", _), _), List(JsBuiltInType(JsBuiltInType.StringT), _) ), args ) => {
+					val argss = args
+					JsMap(
+						args.map((a) => {
+							val m = a match {
+								// whew!
+								case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _), _), _), List(JsLiteral(key,_))), _, _), _), _), List(value)) => {
+									Map("key"->key.stripPrefix("\"").stripSuffix("\""), "value"->value)
+								}
+							}
+							JsMapElement(m.get("key").get.asInstanceOf[String], m.get("value").get.asInstanceOf[JsTree])
+						})
+					)
+				}
+				
+				// println 
+				case JsSelect(JsPredef(), "println", t) => {
+					JsSelect(JsIdent("console"), "log", t)
+				}
+				
+				// unary bang
+				case JsApply( JsSelect(qualifier, "unary_$bang", t), _) => {
+					JsUnaryOp(qualifier, "!")
+				}
+				
+				// comparisons
+				case JsApply( JsSelect(qualifier, name, _), args) if comparisonMap contains name.toString => {
+					JsASTUtil.visitAST(
+						JsComparison(
+							qualifier,
+							(comparisonMap get name.toString).get,
+							args.head
+						),
+						transform
+					)
+				}
+				
+				// browser 
+				case JsSelect( JsIdent("browser"), name, t) => {
+					JsIdent(name)
+				}
+				
+				// scala.Unit
+				case JsSelect ( JsIdent("scala"), "Unit", t) => {
 					JsVoid()
 				}
-				case x => visitAST(x, processAST)
-			}
-		}
-		
-		// method that can apply a function to all children of a Node
-		def visitAST (tree:JsTree, fn:(JsTree)=>JsTree):JsTree = tree match {
-			case JsSourceFile(path,name,classes) => JsSourceFile(
-				path, 
-				name, 
-				classes map (fn(_).asInstanceOf[JsClass]) 
-			)
-			case JsClass(name,pkg,parents,constructor,properties,methods) => JsClass(
-				name,
-				pkg,
-				parents map (fn(_).asInstanceOf[JsSelect]),
-				fn(constructor).asInstanceOf[JsConstructor],
-				properties map (fn(_).asInstanceOf[JsProperty]),
-				methods map (fn(_).asInstanceOf[JsMethod])
-			)
-			case JsConstructor(name,params,constructorBody,classBody) => JsConstructor(
-				name,
-				params map (fn(_).asInstanceOf[JsParam]),
-				constructorBody map fn,
-				classBody map fn
-			)
-			case JsApply(fun,params) => JsApply(
-				fn(fun),
-				params map fn
-			)
-			case JsSelect(qualifier,name,t) => JsSelect(
-				fn(qualifier),
-				name,
-				t
-			)
-			case JsMethod(name,params,children,ret) => JsMethod(
-				name,
-				params map (fn(_).asInstanceOf[JsParam]),
-				children map fn,
-				ret
-			)
-			case JsBlock(children) => JsBlock(
-				children map fn	
-			)
-			case x:JsSuper => x
-			case x:JsVoid => x
-			case x:JsIdent => x
-			case x:JsLiteral => x
-			case x => {
-				println(x)
 				
-				x
+				case x => JsASTUtil.visitAST(x, transform)
 			}
 		}
 	
