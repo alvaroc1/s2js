@@ -1,9 +1,7 @@
 package gravity
 
 class Test {
-	def run () {}
-}
-
-object Test {
-	class Event extends goog.events.Event 
+	def main () {
+		new goog.fx.Dragger(null, null)
+	}
 }

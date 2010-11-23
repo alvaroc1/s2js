@@ -4,30 +4,36 @@ object JsASTUtil {
 		
 	// method that can apply a function to all children of a Node
 	def visitAST (tree:JsTree, fn:(JsTree)=>JsTree):JsTree = {
+		def applyFn[T <: JsTree] (t:JsTree):T = fn(t).asInstanceOf[T]
+		def applyFnList[T <: JsTree] (l:List[JsTree]):List[T] = l map (applyFn[T](_))
+		
 		tree match {
 			case JsSourceFile(path,name,classes) => JsSourceFile(
 				path, 
 				name, 
-				classes map fn 
+				applyFnList(classes) 
 			)
 			case JsClass(name,pkg,parents,constructor,properties,methods) => {
 				
 				JsClass(
 					name,
 					pkg,
-					parents map (fn(_).asInstanceOf[JsSelect]),
+					applyFnList[JsSelect](parents),
 					fn(constructor).asInstanceOf[JsConstructor],
 					properties map (fn(_).asInstanceOf[JsProperty]),
 					methods map (fn(_).asInstanceOf[JsMethod])
 				)
 			}
-			case JsModule (owner,name,body) => JsModule(
+			case JsModule (owner,name,props,methods,classes,modules) => JsModule(
 				fn(owner),
 				name,
-				body map fn
+				props map (fn(_).asInstanceOf[JsProperty]),
+				methods map (fn(_).asInstanceOf[JsMethod]),
+				classes map (fn(_).asInstanceOf[JsClass]),
+				modules map (fn(_).asInstanceOf[JsModule])
 			)
-			case JsConstructor(name,params,constructorBody,classBody) => JsConstructor(
-				name,
+			case JsConstructor(owner, params,constructorBody,classBody) => JsConstructor(
+				fn(owner),
 				params map (fn(_).asInstanceOf[JsParam]),
 				constructorBody map fn,
 				classBody map fn
@@ -55,7 +61,7 @@ object JsASTUtil {
 			case JsBlock(children) => JsBlock(
 				children map fn	
 			)
-			case JsVar (id, tpe, rhs) => JsVar(id, tpe, fn(rhs))
+			case JsVar (id, tpe, rhs) => JsVar(id, fn(tpe), fn(rhs))
 			
 			case JsIf (cond, thenp, elsep) => JsIf(fn(cond), fn(thenp), fn(elsep))
 			
@@ -65,15 +71,17 @@ object JsASTUtil {
 			
 			case JsComparison (lhs, operator, rhs) => JsComparison (fn(lhs), operator, fn(rhs))
 			
-			case JsParam (name, tpe) => JsParam(name, fn(tpe))
+			case JsParam (name, tpe, default) => JsParam(name, fn(tpe), default map fn)
 			
-			case JsProperty (mods, name, tpt, rhs) => JsProperty (mods, name, fn(tpt), fn(rhs))
+			case JsProperty (owner, name, tpt, rhs, mods) => JsProperty (fn(owner), name, fn(tpt), fn(rhs), mods)
 			
-			case JsNew (tpt) => JsNew( fn(tpt).asInstanceOf[JsSelect] )
+			case JsNew (tpt) => JsNew( fn(tpt) )
 			
 			case JsMap (elements) => JsMap ( elements map (fn(_).asInstanceOf[JsMapElement]))
 			
 			case JsMapElement (key, value) => JsMapElement(key, fn(value))
+			
+			case JsThrow (expr) => JsThrow(fn(expr))
 			
 			case x:JsSuper => x
 			case x:JsVoid => x

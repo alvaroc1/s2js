@@ -22,15 +22,15 @@ object JsAstPrinter {
 				"package: " + pkg + "\n" +
 				"parents: " + parents + "\n" +
 				"constructor: " + print(constructor) + "\n" +
-				"properties: " + properties + "\n" +
+				"properties: " + printList(properties) + "\n" +
 				"methods: " + printList(methods) + "\n" 
 			) +
 			")"
 		}
-		case JsConstructor (name, params, constructorBody, classBody) => {
+		case JsConstructor (owner, params, constructorBody, classBody) => {
 			"JsConstructor (\n" +
 			indent(
-				"name: " + name + "\n" +
+				"owner: " + print(owner) + "\n" +
 				"params: " + params + "\n" +
 				"constructorBody: " + printList(constructorBody) + "\n" +
 				"classBody: " + printList(classBody) + "\n" 
@@ -107,12 +107,26 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsModule (owner, name, body) => {
+		case JsModule (owner, name, props, methods, classes, modules) => {
 			"JsModule(\n" +
 			indent(
 				"owner: " + print(owner) + "\n" +
 				"name: " + name + "\n" +
-				"body: " + printList(body) + "\n"
+				"props: " + printList(props) + "\n" +
+				"methods: " + printList(methods) + "\n" +
+				"classes: " + printList(classes) + "\n" +
+				"modules: " + printList(modules) + "\n"
+			) +
+			")"
+		}
+		case JsProperty (owner, name, tpt, rhs, mods) => {
+			"JsProperty(\n" +
+			indent(
+				"owner: " + print(owner) + "\n" +
+				"name: " + name + "\n" +
+				"tpt: " + print(tpt) + "\n" +
+				"rhs: " + print(rhs) + "\n" +
+				"mods: " + mods + "\n"
 			) +
 			")"
 		}

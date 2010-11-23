@@ -14,10 +14,9 @@ object JsPrinter {
 			case f @ JsSourceFile(path,name,classes) => {
 				// provides
 				val p = findProvides(tree).toSet
-				val provides = p.map( (id:String) => "goog.provide('"+id+");\n" ).mkString("") + "\n"
+				val provides = p.map( (id:String) => "goog.provide('"+id+"');\n" ).mkString("") + "\n"
 				
 				// requires
-				// find all JsSelect
 				val reqs = findRequires(tree).toSet.filter( !p.contains(_) ).map( (id:String) => "goog.require('"+id+"');\n" ).mkString("") + "\n"
 				
 				// classes
@@ -28,37 +27,48 @@ object JsPrinter {
 			
 			case c @ JsClass(owner, name, superClass, constructor, properties, methods) => {
 				
-				val const = printConstructor(c, constructor)
+				val const = printConstructor(c, constructor, properties)
 				
-				val props = properties.map(printProp(c, _)+"\n").mkString("")
+				val props = properties.map(printProp(_)+"\n").mkString("")
 				
 				val methds = methods.map(print).mkString("")
 				
 				const + props + methds
 			}
 			
+			case JsModule (owner, name, props, methods, classes, modules) => {
+				val p = props.map(printProp(_)+"\n").mkString("")
+				
+				val methds = methods.map(print).mkString("")
+				
+				val c = classes.map(print).mkString("")
+				val m = modules.map(print).mkString("")
+				
+				p + methds + c + m
+			}
+			
 			case m @ JsMethod (owner, name, params, children, ret) => {
 				// jsdoc
-				val l = new ListBuffer[Pair[String,String]]()
-				params foreach ((p) => l += (("param", "{"+ print(p.tpe) +"} " + p.name)))
-				if (ret != JsVoid()) l += (("return", "{"+print(ret)+"}"))
+				val l = new ListBuffer[String]()
+				params foreach ((p) => l += getParamDoc(p))
+				if (ret != JsVoid()) l += "@return {"+print(ret)+"}"
 				val jsdoc = doc(l.toList)
 				
-				val start = print(owner) + ".prototype." + name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
+				val start = print(owner) + ".prototype." + name + " = function (" + printParamList(params) + ") {\n"
 				val middle = indent(
 					// weird looking code, will have to refactor later
 					if (ret == JsVoid()) children.map(printWithSemiColon).mkString("") else printWithReturn(m)
 				)
 				val end = "};\n"
 					
-				jsdoc + start + middle + end + "\n"
+				jsdoc + start + indent(getDefaultParamsInit(params)) + middle + end + "\n"
 			}
 			
 			case JsLiteral (value, tpe) => {
 				value
 			}
 			
-			case JsNew ( s @ JsSelect(qualifier, name, _) ) => "new " + print(s)
+			case JsNew ( s ) => "new " + print(s)
 			
 			// not sure if this one is necessary
 			case JsApply (fun, params) => {
@@ -120,6 +130,10 @@ object JsPrinter {
 				condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
 			}
 			
+			case JsThrow (expr) => {
+				"throw " + print(expr) + ";\n"
+			}
+			
 			case JsThis () => "this"
 			
 			case JsVoid () => "" //"{void}"
@@ -137,7 +151,7 @@ object JsPrinter {
 			
 			case JsEmpty () => "EMPTY"
 			
-			case JsParam (name, tpe) => name
+			case JsParam (name, tpe, default) => name
 			
 			case JsBuiltInType (t) => t match {
 				case JsBuiltInType.StringT => "string"
@@ -145,10 +159,6 @@ object JsPrinter {
 				case JsBuiltInType.NumberT => "number"
 				case JsBuiltInType.AnyT => "Object"
 				case JsBuiltInType.UnknownT  => "UNKNOWN"
-			}
-			
-			case JsModule (name, pkg, body) => {
-				body.filter(!_.isInstanceOf[JsMethod]).map(print).mkString("\n")
 			}
 			
 			case JsTypeApply (fun, args) => {
@@ -170,52 +180,53 @@ object JsPrinter {
 		}
 	}
 	
-	def printConstructor (c:JsClass, const:JsConstructor) = const match {
-		case JsConstructor(name, params, constructorBody, classBody) => {
+	def printType (node:JsTree) = node match {
+		case JsParam(_,tpe,default) => {
+			"{" + print(tpe) + default.map((a)=>"=").mkString("") + "}" // annotate default param
+		}
+	}
+	
+	/**
+	 * Get the name of a param, prepend opt_ if it has default value
+	 */
+	def getParamName (p:JsParam) = p.default match {
+		case Some(x) => "opt_" + p.name
+		case None => p.name
+	}
+	
+	def printParamList (params:List[JsParam]) = {		
+		params.map(getParamName).mkString(", ")
+	}
+	
+	def getParamDoc (node:JsParam) = {		
+		"@param " + printType(node) + " " + getParamName(node)
+	}
+	
+	def getDefaultParamsInit (params:List[JsParam]) = {
+		params.filter(_.default.isDefined).map((p) => "var "+p.name+" = opt_" + p.name + " || " + print(p.default.get) +";\n").mkString("")
+	}
+	
+	def printConstructor (c:JsClass, const:JsConstructor, properties:List[JsTree]) = const match {
+		case JsConstructor(owner, params, constructorBody, classBody) => {
+				
 			val superClass = c.parents match {
 				case Nil => None
 				case x => Some(print(x.head))
 			}
 			
-			val parent = superClass.map( (s) => ("extends", "{"+s+"}") )
+			val parent = superClass.map( (s) => "@extends {"+s+"}" )
 			
 			val jsdoc = doc(
-				("constructor", "") :: params.map((p) => ("param", "{"+ print(p.tpe) +"} " + p.name)) ++ parent 
+				("@constructor") :: params.map(getParamDoc) ++ parent 
 			)
 			
-			val sig = name + " = function (" + params.map(_.name).mkString(", ") + ") {\n"
-			
-			/*			
-			// remove void return
-			val constructorBody2 = constructorBody.dropRight(1)
-			
-			val body = constructorBody2 match {
-				case JsApply(fun, params) :: tail => {
-					// the first one is always a call to the super constructor, 
-					// even if there isn't one
-					val first = superClass match {
-						case Some(s) => s + ".call(this, " + params.map(print).mkString(", ") + ");\n"
-						case None => ""//printWithSemiColon(JsApply(fun, params))
-					}
-					val rest = tail.map(printWithSemiColon).mkString("\n") + "\n"
-					
-					first + rest
-				}
-				case _ => throw new Exception("what!")
-			}
-			
-			// get assignments that are not literal or empty
-			val content = classBody.collect({ case JsVar(id, tpe, rhs @ JsSelect(_, _)) => {
-				// ommit 'this' qualifier
-				"this." + id + " = " + print(rhs) + ";\n"
-			} }).mkString("")
-			*/
+			val sig = print(owner) + " = function (" + printParamList(params) + ") {\n"
 			
 			val body = constructorBody.map(_ match {
 				// if calling the super constructor
 				case JsApply( JsSelect( JsSuper(), "<init>", _ ), params) => {
 					// if there is a superclass
-					superClass.map(_+".call(this" + (if (params.length>0) ", " + params.map(print).mkString(", ") else "") + ");").mkString("")
+					superClass.map(_+".call(this" + (if (params.length>0) ", " else "") + params.map(print).mkString(", ") + ");\n").mkString("")
 				}
 				case x => print(x)
 				
@@ -223,16 +234,23 @@ object JsPrinter {
 			
 			// get assignments that are not literal or empty
 			// class variables must be prefixed with "this."
+			/* DON'T use classBody any more, use properties 
 			val content = classBody.collect({
 				case JsVar(id, tpe, rhs @ JsSelect(_,_,_)) => {
 					"this."+id+" = " + print(rhs)+";"
 				}
 			}).mkString("\n") + "\n"
+			*/
+			val content = properties.collect({
+				case p @ JsProperty(_,_,_,rhs,_) if !rhs.isInstanceOf[JsLiteral] => p
+			}).map((p) => p match {
+				case JsProperty(owner, name, tpe, rhs, mods) => "this." + name + " = " + print(rhs)
+			}).mkString("\n") + "\n"
 			
 			val close = "};\n" 
-			val ext = superClass.map( (s) => "goog.inherits("+name+", "+s.toString+");\n" ).getOrElse("")
+			val ext = superClass.map( (s) => "goog.inherits("+print(owner)+", "+s.toString+");\n" ).getOrElse("")
 			
-			jsdoc + sig + indent(body) + indent(content) + close + ext + "\n"
+			jsdoc + sig + indent(getDefaultParamsInit(params)) + "\n" + indent(body) + indent(content) + close + ext + "\n"
 		}
 	}
 	
@@ -251,14 +269,14 @@ object JsPrinter {
 		}
 	}
 	
-	def printProp (c:JsClass, prop:JsProperty) = prop match {
-		case JsProperty (mods, name, tpt, rhs) => {		
+	def printProp (prop:JsProperty) = prop match {
+		case JsProperty (owner @ JsSelect(_,_, t), name, tpt, rhs, mods) => {		
 			val docs = List(
 				//private
-				if (mods.isPrivate) Some(("private", "")) else None,
+				if (mods.isPrivate) Some("@private") else None,
 				
 				// type
-				Some(("type", "{"+print(tpt)+"}"))
+				Some("@type {"+print(tpt)+"}")
 				
 				// collapse 
 			).flatMap(_.toList.flatMap(List(_)))
@@ -271,15 +289,15 @@ object JsPrinter {
 				case _ => "null"
 			}
 			
-			val prop = print(c.owner)+"."+ c.name + ".prototype." + name + " = " + r + ";\n"
+			val prop = print(owner)+"." + (if (t == JsSelectType.Class) "prototype." else "") + name + " = " + r + ";\n"
 			
 			jsdoc + prop + "\n"
 		}
 	}
 	
-	def doc (annotations:List[Pair[String,String]]) = {		
+	def doc (annotations:List[String]) = {		
 		"/**\n" + 
-		annotations.map((a) => " * @"+a._1+" "+a._2+"\n").mkString("") +
+		annotations.map((a) => " * "+a+"\n").mkString("") +
 		" */\n"
 	}
 	
@@ -309,6 +327,14 @@ object JsPrinter {
 			tree match {
 				case JsClass(owner, name, _,_,_,_) => {
 					l.append(print(owner)+"."+name)
+					
+					JsASTUtil visitAST ( tree, find )
+				}
+				
+				case JsModule(owner, name, _,_,_,_) => {
+					l.append(print(owner)+"."+name)
+					
+					JsASTUtil visitAST ( tree, find )
 				}
 				
 				// check everything else
@@ -340,22 +366,41 @@ object JsPrinter {
 				// ignore applications on local variables
 				case JsSelect(JsIdent(_),_,_) => ()
 				
+				// ignore right side of JsProperty and JsVar if it's a select, but add the tpe
+				case JsVar(id, tpe @ JsSelect(_,_,_), JsSelect(_,_,_)) => {
+					l.append(print(tpe))
+				}
+				case JsProperty(owner, name, tpt @ JsSelect(_,_,_), JsSelect(_,_,_), mods) => {
+					l.append(print(tpt))
+				}
+				
+				// select class
+				case s @ JsSelect(_,_,JsSelectType.Class) => {
+					l.append(print(s))
+				}
+				case s @ JsSelect(_,_,JsSelectType.Module) => {
+					l.append(print(s))
+				}
+				
 				// method calls, print qualifier
-				case JsSelect(q, _, JsSelectType.Method) => {
+				/*
+				case JsSelect(q @ JsSelect(_,_,_), _, t) => {
 					l.append( print(q) )
 				}
+				*/
 				
 				// add other selects
 				case x:JsSelect => {
+					val j = x
 					val s = print(x)
 					
-					l.append( print(x) )
+					//l.append( print(x) )
+					JsASTUtil visitAST ( tree, find )
 				}
 				
 				// check everything else
 				case _ => {
 					JsASTUtil visitAST ( tree, find )
-					()
 				}
 			}
 			tree
@@ -374,9 +419,6 @@ object JsPrinter {
 			case JsBlock(children) => children flatMap findRequires
 			case JsVar(_,_,rhs) => findRequires(rhs)
 			
-			// ignore super calls
-			case JsApply(JsSelect(JsSuper(),_,_),_) => Nil
-			
 			case JsApply(qual,_) => {
 				findRequires(qual)
 			}
@@ -389,9 +431,6 @@ object JsPrinter {
 			
 			// params
 			case JsSelect(_,_,JsSelectType.ParamAccessor) => Nil
-			
-			// members
-			case JsSelect(JsThis(), _, _) => Nil
 			
 			// predef
 			case JsSelect(JsSelect(JsThis(), "Predef", _), _, _) => Nil

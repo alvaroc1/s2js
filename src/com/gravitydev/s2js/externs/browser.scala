@@ -4,4 +4,7 @@ package browser {
 		var innerHTML = ""
 		var className = ""
 	}
+	class Document {
+		val body:Element = null
+	}
 }

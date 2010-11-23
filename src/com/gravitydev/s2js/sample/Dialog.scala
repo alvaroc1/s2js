@@ -13,9 +13,11 @@ import goog.events.FocusHandler
 import goog.fx.Dragger
 import browser.Element
 
-class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelper) extends Component (opt_domHelper) {
-	val class_ = opt_class
-	val useIframeMask_ = opt_useIframeMask
+class Dialog (
+	val class_ :String = goog.getCssName("modal-dialog"), 
+	val useIframeMask_ :Boolean = false, 
+	domHelper:DomHelper = null
+) extends Component (domHelper) {
 	
 	/** Button set. Default: Ok/Cancel */
 	private var buttons_ = Dialog.ButtonSet.OK_CANCEL
@@ -296,8 +298,14 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 		}
 	}
 	
-	def render () {
-		// TODO
+	def render (parent:Element = getDomHelper.getDocument.body) {
+		if (isInDocument) {
+			throw new Exception(goog.ui.Component.Error.ALREADY_RENDERED)
+		}
+		
+		if (getElement == null) {
+			createDom()
+		}
 	}
 	
 	
@@ -309,9 +317,31 @@ class Dialog (opt_class:String, opt_useIframeMask:Boolean, opt_domHelper:DomHelp
 }
 
 object Dialog {
-	class ButtonSet (opt_domHelper:DomHelper = goog.dom.getDomHelper) extends goog.structs.Map {
+	class Event (val key:String, val caption:String) extends goog.events.Event {
+		val `type` = EventType.SELECT
+	}
+	
+	object EventType {
+		val SELECT = "dialogselect"
+		val AFTER_HIDE = "afterhide"
+	}
+	
+	class ButtonSet (val dom_ :DomHelper = goog.dom.getDomHelper()) extends goog.structs.Map {
+		var element_ :Element = null
+		
 		def attachToElement (el:Element) {
-			
+			element_ = el
+			render()
+		}
+		
+		def render () {
+			if (element_ != null) {
+				element_.innerHTML = ""
+				val domHelper = goog.dom.getDomHelper(element_)
+				goog.structs.forEach(this, (caption, key) => {
+					var button = domHelper.createDom("button", Map("name"->key), caption)
+				})
+			}
 		}
 	}
 	
