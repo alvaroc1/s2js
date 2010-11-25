@@ -1,5 +1,13 @@
 # ignore bin
 bin
+project/boot/
+project/plugins/project/
+lib_managed/
+src_managed/
+target/
+dist/
+private/
+
 /.classpath
 /.scala_dependencies
 /.project
