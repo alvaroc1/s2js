@@ -1,0 +1,4 @@
+<plugin>
+  <name>s2js</name>
+  <classname>com.gravitydev.s2js.S2JSPlugin</classname>
+</plugin>
