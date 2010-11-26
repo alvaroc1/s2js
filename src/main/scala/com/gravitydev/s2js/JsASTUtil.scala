@@ -83,6 +83,8 @@ object JsASTUtil {
 			
 			case JsThrow (expr) => JsThrow(fn(expr))
 			
+			case JsFunction (params, body) => JsFunction (applyFnList[JsParam](params), fn(body))
+			
 			case x:JsSuper => x
 			case x:JsVoid => x
 			case x:JsIdent => x

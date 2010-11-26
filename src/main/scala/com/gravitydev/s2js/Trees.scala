@@ -47,6 +47,8 @@ case class JsUnaryOp (subject:JsTree, op:String) extends JsTree
 
 case class JsThrow (expr:JsTree) extends JsTree
 
+case class JsFunction (params:List[JsParam], body:JsTree) extends JsTree
+
 case class JsModifiers (
 	isPrivate:Boolean
 )

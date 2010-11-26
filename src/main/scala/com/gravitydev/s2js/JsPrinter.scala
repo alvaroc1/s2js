@@ -76,6 +76,14 @@ object JsPrinter {
 				jsdoc + start + indent(getDefaultParamsInit(params)) + middle + end + "\n"
 			}
 			
+			case JsFunction (params, body) => {
+				"function (" + printParamList(params) + ") {\n" +
+					indent(
+						print(body)	
+					) + 
+				"}"
+			}
+			
 			case JsLiteral (value, tpe) => {
 				value
 			}

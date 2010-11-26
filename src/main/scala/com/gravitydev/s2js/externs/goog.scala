@@ -53,16 +53,6 @@ package object goog {
 	def getCssName (className:String, modifier:String = ""):String = ""
 }
 
-package goog.events {
-	class Event
-	
-	class EventHandler {
-		def listen (obj:AnyRef, events:List[goog.ui.Component.EventType], fn:()=>Unit) {}
-	}
-	
-	class FocusHandler
-}
-
 package goog.fx {
 	class Dragger (el:browser.Element, el2:browser.Element){
 		def dispose () {}

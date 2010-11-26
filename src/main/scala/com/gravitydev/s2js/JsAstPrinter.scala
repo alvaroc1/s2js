@@ -75,9 +75,9 @@ object JsAstPrinter {
 		case JsIf (cond, then, elsep) => {
 			"JsIf(\n" +
 			indent(
-				"cond: " + cond + "\n" +
-				"then: " + then + "\n" +
-				"else: " + then + "\n" 
+				"cond: " + print(cond) + "\n" +
+				"then: " + print(then) + "\n" +
+				"else: " + print(then) + "\n" 
 			) +
 			")"
 		}
@@ -127,6 +127,14 @@ object JsAstPrinter {
 				"tpt: " + print(tpt) + "\n" +
 				"rhs: " + print(rhs) + "\n" +
 				"mods: " + mods + "\n"
+			) +
+			")"
+		}
+		case JsFunction (params, body) => {
+			"JsFunction(\n" +
+			indent(
+				"params: " + printList(params) +
+				"body: " + print(body) 
 			) +
 			")"
 		}

@@ -8,6 +8,9 @@ class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomH
 	
 	def createDom () {}
 	def manageBackgroundDom_() {}
+	def setTitle (title:String) {}
+	def setContent (html:String) {}
+	def setVisible (visible:Boolean) {}
 }
 
 class Component (opt_domHelper:DomHelper) {
@@ -25,7 +28,7 @@ object Component {
 		case object UNCHECK extends EventType
 	}
 	object Error {
-		val ALREADY_RENDERED = "Component already rendered"
+		val ALREADY_RENDERED = ""
 	}
 }
 

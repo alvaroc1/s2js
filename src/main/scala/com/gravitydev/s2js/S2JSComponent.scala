@@ -215,7 +215,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 		}
 		
-		def getJsTree (node:Tree):JsTree = node match {
+		def getJsTreeList[T <: JsTree] (l:List[Tree]):List[T] = l map (getJsTree(_).asInstanceOf[T])
+		
+		def getJsTree (node:Tree) : JsTree = node match {
 
 			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {				
 				val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
@@ -308,7 +310,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 			// application (select)
 			case Apply(Select(qualifier, name), args) => {
-				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), args map getJsTree)
+				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
 			}
 			
 			// select (parent != Apply)
@@ -330,7 +332,6 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 						JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method), Nil)
 					}
 					case s => {
-						//inspect(s)
 						JsSelect(
 							getJsTree(qualifier), 
 							name.toString,
@@ -361,7 +362,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 			case b @ Block(stats,expr) => {
 				//println(b)
-				JsBlock( stats.map(getJsTree(_)) ::: List(getJsTree(expr)) )
+				JsBlock( getJsTreeList[JsTree](stats) ::: List(getJsTree(expr)) )
 			}
 			
 			// unit 
@@ -415,6 +416,14 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				getType(t.symbol)
 			}
 			
+			// this code should share some code with DefDef
+			case Function (vparams, body) => {
+				JsFunction (
+					for (v @ ValDef(mods, name, tpt, rhs) <- vparams) yield getParam(v),
+					getJsTree(body) 
+				) 
+			}
+			
 			case t:Tree => {
 				JsOther(t.getClass.toString, for (child <- t.children) yield getJsTree(child))
 			}
@@ -440,13 +449,15 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 			tree match {
 				// collapse application of package methods
-				case JsSelect(JsSelect(JsIdent(id), pkg, _), name, t) if pkg.toString == "package" => visit {
-					JsSelect(JsIdent(id), name, t)
+				// TODO: come up with better way to identify package objects that doesn't rely on strings, probably with symbol.isPackageObject
+				case JsSelect(JsSelect( q, pkg, JsSelectType.Module), name, t) if pkg == "package" => visit {
+					JsSelect(q, name, t)
 				}
 				// remove extra select on instantiations
 				case JsSelect(JsNew(tpe), name, t) => visit {
 					JsNew(tpe)
 				}
+				
 				// remove default param methods
 				case JsClass (owner, name, parents, constructor, properties, methods) => visit {
 					JsClass (
