@@ -70,14 +70,14 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			// print and save
 			val code = JsPrinter print transformed
 			
-			//println(code)
+			println(code)
 			
 			//println("======== BEFORE PROCESSING ======")
 			//println(JsAstPrinter print parsedUnit)
 			//println("======== AFTER CLEANING =========")
 			//println(JsAstPrinter print cleaned)
 			//println("======== AFTER TRANSFORMING =====")
-			//println(JsAstPrinter print transformed)
+			println(JsAstPrinter print transformed)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -308,8 +308,21 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsNew( getJsTree(select).asInstanceOf[JsSelect] )
 			}
 			
+
+			// toString on XML literal
+			case Apply(Select(Block(_, Block(_, Apply(Select(New(tpt),_), args))), methodName), Nil) if methodName.toString == "toString" && tpt.toString == "scala.xml.Elem" => {
+				val tag = args(1).toString.stripPrefix("\"").stripSuffix("\"")
+				
+				val x = getXml(tag)
+				
+				JsLiteral("\"" + x.toString + "\"", "string")
+				//JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
+			}
+			
 			// application (select)
 			case Apply(Select(qualifier, name), args) => {
+				val q = qualifier
+				
 				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
 			}
 			
@@ -439,6 +452,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 		}
 		
+		def getXml (label:String) = new xml.Elem(null, label, xml.Null, xml.TopScope) 
+		
 		def getSuperClass (c:ClassDef):Option[String] = {
 			val superClass = c.impl.parents.head
 			if (superClass.toString == "java.lang.Object") None else Some(superClass.tpe.toString)
@@ -560,6 +575,11 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				
 				// scala.Unit
 				case JsSelect ( JsIdent("scala"), "Unit", t) => visit {
+					JsVoid()
+				}
+				
+				// toString on XML literal
+				case JsApply ( JsSelect(_, "toString", JsSelectType.Method ), Nil ) => {
 					JsVoid()
 				}
 				
