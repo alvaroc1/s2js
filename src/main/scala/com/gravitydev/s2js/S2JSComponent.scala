@@ -4,6 +4,7 @@ import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.symtab.Symbols
 import scala.tools.nsc.plugins.PluginComponent
 import scala.collection.mutable.ListBuffer
+import StringUtil._
 
 class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginComponent {
 	import global._
@@ -70,14 +71,14 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			// print and save
 			val code = JsPrinter print transformed
 			
-			println(code)
+			//println(code)
 			
 			//println("======== BEFORE PROCESSING ======")
 			//println(JsAstPrinter print parsedUnit)
 			//println("======== AFTER CLEANING =========")
 			//println(JsAstPrinter print cleaned)
 			//println("======== AFTER TRANSFORMING =====")
-			println(JsAstPrinter print transformed)
+			//println(JsAstPrinter print transformed)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -310,12 +311,10 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 
 			// toString on XML literal
-			case Apply(Select(Block(_, Block(_, Apply(Select(New(tpt),_), args))), methodName), Nil) if methodName.toString == "toString" && tpt.toString == "scala.xml.Elem" => {
-				val tag = args(1).toString.stripPrefix("\"").stripSuffix("\"")
+			case Apply(Select(b @ Block(_, Block(_, elemConst @ Apply(Select(New(tpt),_), args))), methodName), Nil) if methodName.toString == "toString" && tpt.toString == "scala.xml.Elem" => {
+				val x = getXml(b)
 				
-				val x = getXml(tag)
-				
-				JsLiteral("\"" + x.toString + "\"", "string")
+				JsLiteral("'" + x.toString + "'", "string")
 				//JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
 			}
 			
@@ -452,7 +451,45 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 		}
 		
-		def getXml (label:String) = new xml.Elem(null, label, xml.Null, xml.TopScope) 
+		def getXml (tree:Tree, attributes:Map[String,String]=Map()):xml.Node = tree match {
+			case Apply(Select(New(tpt),_), args) => tpt match {
+				case tpt if tpt.toString == "scala.xml.Elem" => 
+					val tag = args(1).toString.stripPrefix("\"").stripSuffix("\"")
+					
+					var prev:xml.MetaData = xml.Null
+					attributes.foreach((t) => {
+						val a = new xml.UnprefixedAttribute(t._1, t._2, prev)
+						prev = a
+					})
+					
+					val children = if (args.length > 4) {
+						val Typed(Block(stats, expr), tpt) = args(4)
+						
+						// get children from buffer
+						for (a @ Apply(fun, List(node)) <- stats) yield getXml(node)
+					} else {
+						Nil
+					}
+					
+					new xml.Elem(null, tag, prev, xml.TopScope, children : _*)
+					
+				case tpt if tpt.toString == "scala.xml.Text" => {
+					
+					new xml.Text(
+						stripQuotes(args(0).toString)
+							.replace("""\012""", """\n""") // new line
+							.replace("""\011""", """\t""") // tab
+					)
+				}
+			}
+			case Block(_, inner @ Block(stats, a @ Apply(_,_))) => {
+				// get attributes
+				val attributes = (for (Assign(_, Apply(fun, List(name, Apply(_, List(value)), _))) <- stats) 
+					yield (stripQuotes(name.toString), stripQuotes(value.toString))).toMap
+				
+				getXml(a, attributes)
+			}
+		}
 		
 		def getSuperClass (c:ClassDef):Option[String] = {
 			val superClass = c.impl.parents.head
