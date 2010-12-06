@@ -205,6 +205,14 @@ object JsPrinter {
 				) +
 				"}"
 			}
+			
+			case JsArray (elements) => {
+				"[\n" +
+				indent(
+					elements.map(print).mkString(",\n")
+				) +
+				"]"
+			}
 
 			case JsReturn (expr) => {
 				"return " + print(expr) + ";\n"

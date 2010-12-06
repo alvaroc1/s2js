@@ -631,6 +631,32 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					)
 				}
 				
+				// lists
+				case JsApply ( 
+						JsTypeApply( 
+							JsApply( 
+								JsSelect( 
+									JsSelect( 
+										JsSelect(
+											JsSelect(JsIdent("scala"), "collection", JsSelectType.Module), 
+											"immutable", 
+											JsSelectType.Module
+										), 
+										"List", 
+										JsSelectType.Module
+									), 
+									"apply", 
+									JsSelectType.Method
+								), 
+								_
+							), 
+							_
+						), 
+						params
+					) => {
+					JsArray(params)
+				}
+				
 				// remove remaining type applications
 				case JsApply ( JsTypeApply( JsApply(fun, _), _), args ) => visit [JsTree] { // not sure why i need to specify JsTree here, cast exception otherwise
 					JsApply( fun, args )

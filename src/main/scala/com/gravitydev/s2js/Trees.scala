@@ -55,6 +55,8 @@ case class JsReturn (expr:JsTree) extends JsTree
 
 case class JsPackage (name:String, children:List[JsTree]) extends JsTree
 
+case class JsArray (elements:List[JsTree]) extends JsTree
+
 case class JsModifiers (
 	isPrivate:Boolean
 )

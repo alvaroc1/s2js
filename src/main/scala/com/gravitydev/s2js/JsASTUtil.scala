@@ -79,6 +79,8 @@ object JsAstUtil {
 			
 			case JsNew (tpt) => JsNew( fn(tpt) )
 			
+			case JsArray (elements) => JsArray( elements map fn )
+			
 			case JsMap (elements) => JsMap ( elements map (fn(_).asInstanceOf[JsMapElement]))
 			
 			case JsMapElement (key, value) => JsMapElement(key, fn(value))
