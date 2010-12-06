@@ -11,6 +11,19 @@ class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomH
 	def setTitle (title:String) {}
 	def setContent (html:String) {}
 	def setVisible (visible:Boolean) {}
+	def setButtonSet (buttonSet:Dialog.ButtonSet) {}
+}
+object Dialog {
+	class Event (val key:String, val caption:String) extends goog.events.Event {
+		val `type`:String = ""
+	}
+	
+	class EventType
+	object EventType {
+		val SELECT = "select"
+		val AFTER_HIDE = "after_hide"
+	}
+	class ButtonSet extends goog.structs.Map
 }
 
 class Component (opt_domHelper:DomHelper) {

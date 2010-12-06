@@ -54,21 +54,22 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsMethod (owner, name, params, children, ret) => {
+		case JsMethod (owner, name, params, body, ret) => {
 			"JsMethod(\n" +
 			indent(
 				"owner: " + print(owner) + "\n" +
 				"name: " + name + "\n" +
 				"params: " + params + "\n" +
-				"children: " + printList(children) + "\n" +
+				"children: " + print(body) + "\n" +
 				"ret: " + ret + "\n" 
 			) +
 			")"
 		}
-		case JsBlock (children) => {
+		case JsBlock (stats,expr) => {
 			"JsBlock(\n" + 
 			indent(
-				"children: " + printList(children) + "\n" 
+				"stats: " + printList(stats) + "\n" +
+				"expr: " + print(expr) + "\n" 
 			) +
 			")"
 		}
@@ -133,8 +134,16 @@ object JsAstPrinter {
 		case JsFunction (params, body) => {
 			"JsFunction(\n" +
 			indent(
-				"params: " + printList(params) +
+				"params: " + printList(params) + "\n" +
 				"body: " + print(body) 
+			) +
+			")"
+		}
+		case JsPackage (name, children) => {
+			"JsPackage(\n" +
+			indent(
+				"name: " + name + "\n" +
+				"children: " + printList(children) + "\n"
 			) +
 			")"
 		}

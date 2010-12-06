@@ -10,7 +10,6 @@ object JsPrinter {
 	 */
 	def print (tree:JsTree):String = {
 		tree match {
-			
 			case f @ JsSourceFile(path,name,classes) => {
 				// provides
 				val p = findProvides(tree).toSet
@@ -23,10 +22,15 @@ object JsPrinter {
 				// only one object as top level with a main method
 				val content = classes match {
 					// script, print only the body of the main method
-					case JsModule(_, _, _, JsMethod(_, "main", _, children, _) :: Nil, _, _) :: Nil => {
-						"(function () {\n" +
-						indent(children.map(printWithSemiColon).mkString("")) +
-						"})();\n"
+					case JsModule(_, _, _, JsMethod(_, "main", args, body, _) :: Nil, _, _) :: Nil => {
+						// values from window
+						val values = args.map((a:JsParam)=>"window[\""+a.name+"\"]").mkString(", ")
+						
+						"(function ("+printParamList(args)+") {\n" +
+						indent(
+							print(body)
+						) +
+						"})(" + values + ");\n"
 					}
 					// library, print all the classes and modules
 					case classes => {
@@ -59,17 +63,16 @@ object JsPrinter {
 				p + methds + c + m
 			}
 			
-			case m @ JsMethod (owner, name, params, children, ret) => {
+			case m @ JsMethod (owner, name, params, body, ret) => {
 				// jsdoc
 				val l = new ListBuffer[String]()
 				params foreach ((p) => l += getParamDoc(p))
 				if (ret != JsVoid()) l += "@return {"+print(ret)+"}"
 				val jsdoc = doc(l.toList)
 				
-				val start = print(owner) + ".prototype." + name + " = function (" + printParamList(params) + ") {\n"
+				val start = print(owner) + "." + (if (owner.isInstanceOf[JsSelect] && owner.asInstanceOf[JsSelect].selectType == JsSelectType.Class) "prototype." else "") + name + " = function (" + printParamList(params) + ") {\n"
 				val middle = indent(
-					// weird looking code, will have to refactor later
-					if (ret == JsVoid()) children.map(printWithSemiColon).mkString("") else printWithReturn(m)
+					print(body)
 				)
 				val end = "};\n"
 					
@@ -117,7 +120,7 @@ object JsPrinter {
 					case x => {
 						//println(x)
 						
-						name
+						print(qualifier) + "." + name
 					}
 				}
 				
@@ -138,6 +141,10 @@ object JsPrinter {
 			
 			case JsUnaryOp (select, op) => {
 				op + print(select)
+			}
+			
+			case JsInfixOp (a, b, op) => {
+				print(a) + " " + op + " " + print(b)
 			}
 			
 			case JsIf (cond, thenp, elsep) => {			
@@ -161,8 +168,9 @@ object JsPrinter {
 			case JsVar (id,tpe,rhs) => {				
 				"var "+id+" = " + print(rhs)+";\n"
 			}
-			case JsBlock (children) => {
-				children.map(printWithSemiColon).mkString("")
+			case JsBlock (stats, expr) => {
+				(stats.map(printWithSemiColon) ::: List(printWithSemiColon(expr))).mkString("")
+				//children.map(printWithSemiColon).mkString("")
 			}
 			
 			case JsOther (clazz,children) => {
@@ -196,6 +204,10 @@ object JsPrinter {
 					elements.map((e) => "\"" + e.key + "\": " + print(e.value)).mkString(",\n")
 				) +
 				"}"
+			}
+
+			case JsReturn (expr) => {
+				"return " + print(expr) + ";\n"
 			}
 		}
 	}
@@ -275,17 +287,22 @@ object JsPrinter {
 	}
 	
 	def getLastStatement (tree:JsTree) : JsTree = tree match {
+		/*
 		case JsMethod(_,_, _, children, _) => {
 			children.last match {
 				case a:JsBlock => getLastStatement(a)
 				case a => a
 			}
 		}
-		case JsBlock (children) => {
+		*/
+		case JsBlock (stats, expr) => {
+			/*
 			children.last match {
 				case a:JsBlock => getLastStatement(a)
 				case a => a
 			}
+			*/
+			JsVoid()
 		}
 	}
 	
@@ -329,16 +346,6 @@ object JsPrinter {
 			case x => print(x)
 		}
 	}
-		
-	def printWithReturn (tree : JsTree) : String = tree match {
-		case b:JsMethod => {
-			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
-		}
-		case b:JsBlock => {
-			(b.children.init map printWithSemiColon).mkString("") +printWithReturn(b.children.last) 
-		}
-		case x => "return " + printWithSemiColon (x)
-	}
 	
 	def findProvides (tree : JsTree) : List[String] = {
 		val l = new ListBuffer[String]
@@ -348,18 +355,18 @@ object JsPrinter {
 				case JsClass(owner, name, _,_,_,_) => {
 					l.append(print(owner)+"."+name)
 					
-					JsASTUtil visitAST ( tree, find )
+					JsAstUtil visitAst ( tree, find )
 				}
 				
 				case JsModule(owner, name, _,_,_,_) => {
 					l.append(print(owner)+"."+name)
 					
-					JsASTUtil visitAST ( tree, find )
+					JsAstUtil visitAst ( tree, find )
 				}
 				
 				// check everything else
 				case _ => {
-					JsASTUtil visitAST ( tree, find )
+					JsAstUtil visitAst ( tree, find )
 					()
 				}
 			}
@@ -369,10 +376,12 @@ object JsPrinter {
 		l.toList
 	}
 	
-	def findRequires (tree : JsTree) : List[String] = {
+	def findRequires (tree : JsTree) : List[String] = {			
 		val l = new ListBuffer[String]
 		
-		def find (tree:JsTree) : JsTree = {
+		def find (tree:JsTree) : JsTree = {		
+			def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, find).asInstanceOf[T]
+				
 			tree match {
 				// ignore members
 				case JsSelect(JsThis(), _, _) => ()
@@ -382,9 +391,6 @@ object JsPrinter {
 				
 				// ignore super calls
 				case JsApply(JsSelect(JsSuper(),_,_),_) => ()
-				
-				// ignore applications on local variables
-				case JsSelect(JsIdent(_),_,_) => ()
 				
 				// ignore right side of JsProperty and JsVar if it's a select, but add the tpe
 				case JsVar(id, tpe @ JsSelect(_,_,_), JsSelect(_,_,_)) => {
@@ -398,78 +404,27 @@ object JsPrinter {
 				case s @ JsSelect(_,_,JsSelectType.Class) => {
 					l.append(print(s))
 				}
-				case s @ JsSelect(_,_,JsSelectType.Module) => {
+				// select module
+				case JsSelect(s @ JsSelect(_,_,JsSelectType.Module), _, JsSelectType.Method ) => {
+					l.append(print(s))
+				}
+				// select package
+				case JsSelect( s @ JsSelect(_,_,JsSelectType.Package), _, JsSelectType.Method ) => {
 					l.append(print(s))
 				}
 				
-				// method calls, print qualifier
-				/*
-				case JsSelect(q @ JsSelect(_,_,_), _, t) => {
-					l.append( print(q) )
-				}
-				*/
-				
-				// add other selects
-				case x:JsSelect => {
-					val j = x
-					val s = print(x)
-					
-					//l.append( print(x) )
-					JsASTUtil visitAST ( tree, find )
-				}
-				
-				// check everything else
-				case _ => {
-					JsASTUtil visitAST ( tree, find )
-				}
+				// TODO: had to move this one down to not conflict with the package one. Gotta figure out what the deal is
+				// ignore applications on local variables
+				case JsSelect(JsIdent(_),_,_) => ()
+
+				case _ => ()
 			}
-			tree
+			visit(tree)
 		}
 		
 		find(tree)
 		
 		l.toList
-		/*
-		def findInList (l : List[JsTree]) = l flatMap findRequires
-		
-		tree match {
-			case JsSourceFile(_,_,classes) => findInList(classes)
-			case JsClass(_,_,parents,JsConstructor(_,_,constructorBody,classBody),_,methods) => findInList(parents) ::: findInList(constructorBody) ::: findInList(classBody) ::: findInList(methods)
-			case JsMethod(_,params, children,_) => params:::children flatMap findRequires //(params flatMap findRequires) ::: (children flatMap findRequires)
-			case JsBlock(children) => children flatMap findRequires
-			case JsVar(_,_,rhs) => findRequires(rhs)
-			
-			case JsApply(qual,_) => {
-				findRequires(qual)
-			}
-			case JsNew(s) => findRequires(s)
-			
-			case JsParam (_, tpe) => findRequires(tpe)
-			
-			// methods on "object"s
-			case JsSelect( s @ JsSelect(_,_,_), _, JsSelectType.Method ) => List(print(s))
-			
-			// params
-			case JsSelect(_,_,JsSelectType.ParamAccessor) => Nil
-			
-			// predef
-			case JsSelect(JsSelect(JsThis(), "Predef", _), _, _) => Nil
-			
-			// scala (predef)
-			case JsSelect(JsIdent("scala"),_,_) => Nil
-			
-			case x:JsSelect => {
-				
-				List(print(x))
-			}
-			case JsVoid() => Nil
-			
-			case x => {
-				println("Search for selects? "+x.getClass)
-				Nil
-			}
-		}
-		*/
 	}
 	
 }

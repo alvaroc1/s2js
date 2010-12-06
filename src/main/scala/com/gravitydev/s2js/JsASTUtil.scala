@@ -1,9 +1,9 @@
 package com.gravitydev.s2js
 
-object JsASTUtil {
+object JsAstUtil {
 		
 	// method that can apply a function to all children of a Node
-	def visitAST (tree:JsTree, fn:(JsTree)=>JsTree):JsTree = {
+	def visitAst (tree:JsTree, fn:(JsTree)=>JsTree):JsTree = {
 		def applyFn[T <: JsTree] (t:JsTree):T = fn(t).asInstanceOf[T]
 		def applyFnList[T <: JsTree] (l:List[JsTree]):List[T] = l map (applyFn[T](_))
 		
@@ -51,15 +51,16 @@ object JsASTUtil {
 				name,
 				t
 			)
-			case JsMethod(owner, name,params,children,ret) => JsMethod(
+			case JsMethod(owner, name,params,body,ret) => JsMethod(
 				fn(owner),
 				name,
 				params map (fn(_).asInstanceOf[JsParam]),
-				children map fn,
+				fn(body),
 				fn(ret)
 			)
-			case JsBlock(children) => JsBlock(
-				children map fn	
+			case JsBlock(stats, expr) => JsBlock(
+				stats map fn,
+				fn(expr)
 			)
 			case JsVar (id, tpe, rhs) => JsVar(id, fn(tpe), fn(rhs))
 			
@@ -68,6 +69,7 @@ object JsASTUtil {
 			case JsAssign (lhs, rhs) => JsAssign (fn(lhs), fn(rhs))
 			
 			case JsUnaryOp (select, op) => JsUnaryOp(fn(select), op)
+			case JsInfixOp (a, b, op) => JsInfixOp(fn(a), fn(b), op)
 			
 			case JsComparison (lhs, operator, rhs) => JsComparison (fn(lhs), operator, fn(rhs))
 			
@@ -84,6 +86,10 @@ object JsASTUtil {
 			case JsThrow (expr) => JsThrow(fn(expr))
 			
 			case JsFunction (params, body) => JsFunction (applyFnList[JsParam](params), fn(body))
+			
+			case JsReturn (expr) => JsReturn ( fn(expr) )
+			
+			case JsPackage (name, children) => JsPackage(name, applyFnList(children))
 			
 			case x:JsSuper => x
 			case x:JsVoid => x
