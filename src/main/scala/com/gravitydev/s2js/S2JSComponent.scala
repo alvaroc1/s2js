@@ -76,14 +76,14 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 			// print and save
 			val code = JsPrinter print transformed
-			//println(code)
+			println(code)
 			
 			//println("======== BEFORE PROCESSING ======")
 			//println(JsAstPrinter print parsedUnit)
 			//println("======== AFTER CLEANING =========")
 			//println(JsAstPrinter print cleaned)
-			//println("======== AFTER TRANSFORMING =====")
-			//println(JsAstPrinter print transformed)
+			println("======== AFTER TRANSFORMING =====")
+			println(JsAstPrinter print transformed)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -295,6 +295,10 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsAssign(select, getJsTree(args.head))
 			}
 			
+			case Assign (lhs, rhs) => {
+				JsAssign(getJsTree(lhs), getJsTree(rhs))
+			}
+			
 			/* don't think we need this anymore
 			// package methods
 			case Select(Select(Ident(_), name), _) if name.toString == "package" => {
@@ -311,8 +315,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			*/
 			//case New ( Select (q, name) ) => {
 			case New ( select ) => {
-				//JsNew( JsSelect( getJsTree(q), name.toString) )
-				JsNew( getJsTree(select) )
+				// local references to classes are not fully qualified
+				// so when we have an Ident, we have to get the full type
+				val t = select match {
+					case i @ Ident(id) => getType(i.symbol)
+					case _ => getJsTree(select)
+				}
+				JsNew( t )
 			}
 			
 
@@ -458,6 +467,10 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					pid.toString, 
 					getJsTreeList(stats.filterNot(_.isInstanceOf[Import])) // remove imports
 				)
+			}
+			
+			case EmptyTree => {
+				JsEmpty()
 			}
 			
 			case t:Tree => {
@@ -655,6 +668,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 						params
 					) => {
 					JsArray(params)
+				}
+				case JsSelect(JsSelect(JsSelect(JsIdent("scala"), "collection", JsSelectType.Module), "immutable", JsSelectType.Module), "List", JsSelectType.Class) => {
+					JsBuiltInType(JsBuiltInType.ArrayT)
 				}
 				
 				// remove remaining type applications

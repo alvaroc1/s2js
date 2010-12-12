@@ -1,6 +1,7 @@
 package com.gravitydev.s2js
 
-trait JsTree 
+trait JsTree
+
 case class JsSourceFile (path:String, name:String, children:List[JsTree]) extends JsTree
 
 case class JsClass (owner:JsTree, name:String, parents:List[JsSelect], constructor:JsConstructor, properties:List[JsProperty], methods:List[JsMethod]) extends JsTree
@@ -70,5 +71,5 @@ object JsSelectType extends Enumeration {
 
 object JsBuiltInType extends Enumeration {
 	type JsBuiltInType = Value
-	val AnyT, StringT, BooleanT, NumberT, UnknownT = Value
+	val AnyT, StringT, BooleanT, NumberT, UnknownT, ArrayT = Value
 }

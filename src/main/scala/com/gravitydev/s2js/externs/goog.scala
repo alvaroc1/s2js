@@ -1,23 +1,24 @@
 
-package goog {
-	import browser._
-		
-	object css {
-		def getCssName (n:String) = "test"
-	}
-	
-	object style {
-		def setOpacity (el:Element, opacity:Double) {}
-		def showElement (el:Element, show:Boolean) {}
-	}
-}
+package goog 
 
-package object goog {
+import browser._
+	
+
+object `package` {
 	def getCssName (className:String, modifier:String = ""):String = ""
 }
 
-package goog.fx {
-	class Dragger (el:browser.Element, el2:browser.Element){
-		def dispose () {}
-	}
+	
+object css {
+	def getCssName (n:String) = "test"
+}
+
+object style {
+	def setOpacity (el:Element, opacity:Double) {}
+	def showElement (el:Element, show:Boolean) {}
+	def isRightToLeft(el:Element) = false
+}
+
+object string {
+	def createUniqueString ():String = ""
 }

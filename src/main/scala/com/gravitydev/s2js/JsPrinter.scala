@@ -186,6 +186,7 @@ object JsPrinter {
 				case JsBuiltInType.BooleanT => "boolean"
 				case JsBuiltInType.NumberT => "number"
 				case JsBuiltInType.AnyT => "Object"
+				case JsBuiltInType.ArrayT => "Array"
 				case JsBuiltInType.UnknownT  => "UNKNOWN"
 			}
 			
@@ -282,7 +283,7 @@ object JsPrinter {
 			}).mkString("\n") + "\n"
 			*/
 			val content = properties.collect({
-				case p @ JsProperty(_,_,_,rhs,_) if !rhs.isInstanceOf[JsLiteral] => p
+				case p @ JsProperty(_,_,_,rhs,_) if !rhs.isInstanceOf[JsLiteral] && !rhs.isInstanceOf[JsEmpty] => p
 			}).map((p) => p match {
 				case JsProperty(owner, name, tpe, rhs, mods) => "this." + name + " = " + print(rhs)
 			}).mkString("\n") + "\n"

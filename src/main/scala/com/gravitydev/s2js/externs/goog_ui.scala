@@ -3,6 +3,21 @@ package goog.ui
 import browser._
 import goog.dom.DomHelper
 
+class Button (content:AnyRef /* ControlContent*/, renderer:ButtonRenderer=null, domHelper:DomHelper=null) {
+	// this doesn't exist but it is used on goog.editor
+	var queryable = false
+}
+
+class ButtonRenderer extends ControlRenderer
+
+class ToggleButton (content:AnyRef /* ControlContent */, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Button (content, renderer, domHelper)
+
+class Control (content:ControlContent, renderer:ControlRenderer = null, domHelper:DomHelper = null)
+
+class ControlContent
+
+class ControlRenderer
+
 class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomHelper = null) extends Component (domHelper) {
 	var titleEl_ : Element = _
 	
@@ -67,3 +82,7 @@ object Container {
 }
 
 class ContainerRenderer
+
+class Toolbar (renderer:ToolbarRenderer, orientation:Any = null, domHelper:DomHelper = null)
+
+class ToolbarRenderer
