@@ -13,6 +13,7 @@ object `package` {
 	def insertSiblingBefore (el1:Element, el2:Element) {}
 	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Element = null
 	def flattenElement (element:Element):Element = null
+	def appendChild (parent:Node, child:Node) {}
 }
 
 class DomHelper {

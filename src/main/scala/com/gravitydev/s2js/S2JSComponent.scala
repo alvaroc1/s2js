@@ -391,7 +391,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 			case b @ Block(stats,expr) => {
 				//println(b)
-				JsBlock( getJsTreeList[JsTree](stats), getJsTree(expr) )
+				JsBlock( 
+					getJsTreeList[JsTree](
+						// remove imports
+						stats.filterNot(_.isInstanceOf[Import])
+					), 
+					getJsTree(expr) 
+				)
 			}
 			
 			// unit 

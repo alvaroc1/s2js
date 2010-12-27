@@ -1,6 +1,13 @@
 package goog.editor.plugins
 
-class AbstractBubblePlugin extends goog.editor.Plugin
+import browser._
+
+abstract class AbstractBubblePlugin extends goog.editor.Plugin {
+	def getBubbleTargetFromSelection (selectedElement:Element):Element = null
+	def getBubbleType ():String = null
+	def getBubbleTitle () :String = null
+	def createBubbleContents (bubbleContainer:Element) {}
+}
 class AbstractDialogPlugin extends goog.editor.Plugin
 
 class EnterHandler extends goog.editor.Plugin
