@@ -12,7 +12,7 @@ class ButtonRenderer extends ControlRenderer
 
 class ToggleButton (content:AnyRef /* ControlContent */, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Button (content, renderer, domHelper)
 
-class Control (content:ControlContent, renderer:ControlRenderer = null, domHelper:DomHelper = null)
+class Control (content:ControlContent, renderer:ControlRenderer = null, domHelper:DomHelper = null) extends Component (domHelper)
 
 class ControlContent
 
@@ -29,7 +29,7 @@ class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomH
 	def setButtonSet (buttonSet:Dialog.ButtonSet) {}
 }
 object Dialog {
-	class Event (val key:String, val caption:String) extends goog.events.Event {
+	class Event (val key:String, val caption:String) extends goog.events.Event ("") {
 		val `type`:String = ""
 	}
 	
@@ -47,13 +47,22 @@ class Component (opt_domHelper:DomHelper) {
 	def isInDocument () : Boolean = false
 	def setElementInternal (el:Element) {}
 	def getId () : String = ""
+	def render (opt_parentElement:Element = null) {}
 }
 
 object Component {
 	class EventType
 	object EventType {
+		/*
+		case object SELECT extends EventType
+		case object UNSELECT extends EventType
 		case object CHECK extends EventType
 		case object UNCHECK extends EventType
+		*/
+		val SELECT = ""
+		val UNSELECT = ""
+		val CHECK = ""
+		val UNCHECK = ""
 	}
 	object Error {
 		val ALREADY_RENDERED = ""
@@ -82,6 +91,10 @@ object Container {
 }
 
 class ContainerRenderer
+
+class Tab (content:goog.ui.ControlContent, opt_renderer:goog.ui.TabRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends Control (content, opt_renderer, opt_domHelper)
+
+class TabRenderer extends ControlRenderer
 
 class Toolbar (renderer:ToolbarRenderer, orientation:Any = null, domHelper:DomHelper = null)
 

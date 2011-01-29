@@ -298,7 +298,7 @@ class Dialog (
 		}
 	}
 	
-	def render (parent:Element = getDomHelper.getDocument.body) {
+	override def render (parent:Element = getDomHelper.getDocument.body) {
 		if (isInDocument) {
 			throw new Exception(goog.ui.Component.Error.ALREADY_RENDERED)
 		}
@@ -317,7 +317,7 @@ class Dialog (
 }
 
 object Dialog {
-	class Event (val key:String, val caption:String) extends goog.events.Event {
+	class Event (val key:String, val caption:String) extends goog.events.Event (EventType.SELECT) {
 		val `type` = EventType.SELECT
 	}
 	

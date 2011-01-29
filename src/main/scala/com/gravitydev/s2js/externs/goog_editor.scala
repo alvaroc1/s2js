@@ -76,3 +76,4 @@ object node {
 	def isEditable (node:Element):Boolean = false
 }
 
+class Link (anchor:HTMLAnchorElement, isNew:Boolean)

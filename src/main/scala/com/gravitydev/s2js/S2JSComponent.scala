@@ -335,6 +335,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				//JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
 			}
 			
+			/*
+			// application on super
+			case Apply(Select(qualifier @ Super(qual, mix), name), args) => {
+				JsApply( JsSelect( JsSuper(getType(qualifier.symbol)), name.toString, JsSelectType.Method ), getJsTreeList(args))
+			}
+			*/
+			
 			// application (select)
 			case Apply(Select(qualifier, name), args) => {
 				val q = qualifier
@@ -429,7 +436,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			case If(cond, thenp, elsep) => JsIf(getJsTree(cond), getJsTree(thenp), getJsTree(elsep))
 			
 			case Super (qual, mix) => {
-				JsSuper()
+				JsSuper(getType(node.symbol).asInstanceOf[JsSelect])
 			}
 			
 			case Apply (select, args) => {
@@ -437,6 +444,11 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsApply(
 					getJsTree(select), args map getJsTree
 				)
+			}
+			
+			// handle asInstanceOf casts
+			case TypeApply(Select(qualifier, name), args) if name.toString == "asInstanceOf" => {
+				JsCast(getJsTree(qualifier), getType(args(0).symbol).asInstanceOf[JsSelect])
 			}
 			
 			case TypeApply(s, args) => {

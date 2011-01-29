@@ -26,11 +26,13 @@ object JsPrinter {
 						// values from window
 						val values = args.map((a:JsParam)=>"window[\""+a.name+"\"]").mkString(", ")
 						
-						"(function ("+printParamList(args)+") {\n" +
+						// grab the first provides and export it
+						
+						"goog.exportSymbol('" + p.head + "', function ("+printParamList(args)+") {\n" +
 						indent(
 							print(body)
 						) +
-						"})(" + values + ");\n"
+						"});\n"
 					}
 					// library, print all the classes and modules
 					case classes => {
@@ -92,6 +94,11 @@ object JsPrinter {
 			}
 			
 			case JsNew ( s ) => "new " + print(s)
+			
+			// applies on super
+			case JsApply (JsSelect(JsSuper(qualifier), name, tpe), params) => {
+				print(qualifier) + ".superClass_." + name + ".call(" + params.map(print).mkString(", ") + ")"
+			}
 			
 			// not sure if this one is necessary
 			case JsApply (fun, params) => {
@@ -218,6 +225,10 @@ object JsPrinter {
 			case JsReturn (expr) => {
 				"return " + print(expr) + ";\n"
 			}
+			
+			case JsCast (subject, tpe) => {
+				"/** @type {" + print(tpe) + "} */ (" + print(subject) + ")"
+			}
 		}
 	}
 	
@@ -265,7 +276,7 @@ object JsPrinter {
 			
 			val body = constructorBody.map(_ match {
 				// if calling the super constructor
-				case JsApply( JsSelect( JsSuper(), "<init>", _ ), params) => {
+				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _ ), params) => {
 					// if there is a superclass
 					superClass.map(_+".call(this" + (if (params.length>0) ", " else "") + params.map(print).mkString(", ") + ");\n").mkString("")
 				}
@@ -399,7 +410,7 @@ object JsPrinter {
 				case JsSelect(JsSelect(JsThis(),_,_),_,_) => ()
 				
 				// ignore super calls
-				case JsApply(JsSelect(JsSuper(),_,_),_) => ()
+				case JsApply(JsSelect(JsSuper(qualifier),_,_),_) => ()
 				
 				// ignore right side of JsProperty and JsVar if it's a select, but add the tpe
 				case JsVar(id, tpe @ JsSelect(_,_,_), JsSelect(_,_,_)) => {

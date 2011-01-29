@@ -34,7 +34,7 @@ case class JsEmpty () extends JsTree
 
 case class JsNew (tpt:JsTree) extends JsTree
 
-case class JsSuper () extends JsTree
+case class JsSuper (qualifier:JsSelect) extends JsTree
 
 case class JsTypeApply (fun:JsTree, params:List[JsTree]) extends JsTree
 
@@ -57,6 +57,8 @@ case class JsReturn (expr:JsTree) extends JsTree
 case class JsPackage (name:String, children:List[JsTree]) extends JsTree
 
 case class JsArray (elements:List[JsTree]) extends JsTree
+
+case class JsCast (subject:JsTree, tpe:JsSelect) extends JsTree
 
 case class JsModifiers (
 	isPrivate:Boolean

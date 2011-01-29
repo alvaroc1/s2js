@@ -12,7 +12,7 @@ class Window {
 	def focus () {}
 }
 
-object window extends Window 
+object window extends Window {}
 
 class Node 
 
@@ -28,6 +28,10 @@ class Element extends Node {
 	// forms
 	def submit () {}
 }
+
+class HTMLAnchorElement extends Element
+class HTMLDivElement extends Element
+
 class Document {
 	val body:Element = null
 	def execCommand(command:String, showDefaultUI:Boolean, value:String) {}

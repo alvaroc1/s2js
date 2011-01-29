@@ -22,5 +22,9 @@ class RemoveFormatting extends goog.editor.Plugin
 class Blockquote (requiresClassNameToSplit:Boolean) extends goog.editor.Plugin
 
 class LinkBubble extends AbstractBubblePlugin
-class LinkDialogPlugin extends AbstractDialogPlugin
+
+class LinkDialogPlugin extends AbstractDialogPlugin {
+	def createDialog (dialogDomHelper:goog.dom.DomHelper, link:goog.editor.Link) : goog.ui.editor.LinkDialog = null
+}
+
 class TagOnEnterHandler (tag:String) extends EnterHandler

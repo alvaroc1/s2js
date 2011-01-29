@@ -9,11 +9,12 @@ object `package` {
 	def getDomHelper (element:Element = null) : DomHelper = null
 	
 	def setTextContent(el:Element, content:String) {}
-	def createDom (tag:String, others:Object*):Element = null
+	def createDom (tag:String, others:AnyRef*):Element = null
 	def insertSiblingBefore (el1:Element, el2:Element) {}
 	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Element = null
 	def flattenElement (element:Element):Element = null
 	def appendChild (parent:Node, child:Node) {}
+	def getElementsByTagNameAndClass (opt_tag:String="", opt_class:String="", opt_el:Element=null):List[Element] = null
 }
 
 class DomHelper {
