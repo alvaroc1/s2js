@@ -97,7 +97,7 @@ object JsPrinter {
 			
 			// applies on super
 			case JsApply (JsSelect(JsSuper(qualifier), name, tpe), params) => {
-				print(qualifier) + ".superClass_." + name + ".call(" + params.map(print).mkString(", ") + ")"
+				print(qualifier) + ".superClass_." + name + ".call(this, " + params.map(print).mkString(", ") + ")"
 			}
 			
 			// not sure if this one is necessary
