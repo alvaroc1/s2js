@@ -2,7 +2,7 @@ package goog.editor
 
 import browser._
 
-class Field (id:String, doc:Document = null) {
+class Field (id:String, opt_doc:Document = null) {
 	val originalElement:Element = null
 	def registerPlugin (plugin:Plugin) {}
 	def setHtml (addParas:Boolean, html:String, dontFireDelayedChange:Boolean=false, applyLorem:Boolean=false) {}
@@ -13,7 +13,7 @@ class Field (id:String, doc:Document = null) {
 	def isSelectionEditable () = false
 }
 
-class SeamlessField (id:String, doc:Document = null) extends Field (id, doc) {
+class SeamlessField (id:String, opt_doc:Document = null) extends Field (id) {
 	def setMinHeight (height:Int) {}
 }
 
@@ -76,4 +76,13 @@ object node {
 	def isEditable (node:Element):Boolean = false
 }
 
-class Link (anchor:HTMLAnchorElement, isNew:Boolean)
+class Link (anchor:HTMLAnchorElement, isNew:Boolean) {
+	def getCurrentText ():String = ""
+	def isNew () = false
+}
+
+object Link {
+	def isMailto (url:String) = false
+	def isLikelyUrl(str:String) = false
+	def isLikelyEmailAddress (str:String) = false
+}

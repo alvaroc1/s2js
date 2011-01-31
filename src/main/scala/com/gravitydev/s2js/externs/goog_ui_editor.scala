@@ -18,13 +18,21 @@ object AbstractDialog {
 	}
 }
 
-class LinkDialog (domHelper:goog.dom.DomHelper, link:goog.editor.Link) extends AbstractDialog (domHelper){
+class LinkDialog (domHelper:goog.dom.DomHelper, link:goog.editor.Link) extends AbstractDialog (domHelper) {
+	val targetLink_ = link
 	def createDialogControl ():goog.ui.Dialog = null
 	def buildTextToDisplayDiv_() = null
 	def buildTabOnTheWeb_() = null
 	def buildTabEmailAddress_() = null
 	def onChangeTab_ (e:goog.events.Event) {}
+	def selectAppropriateTab_ (text:String, url:String) {}
+	def isNewLink_ ():Boolean = false
+	def guessUrlAndSelectTab_ (text:String) {}
+	def setAutogenFlag_(value:Boolean) {}
+	def setAutogenFlagFromCurInput_ () {}
+	def disableAutogenFlag_(autogen:Boolean) {}
 }
+
 object LinkDialog {
 	object Id_ {
 		val TEXT_TO_DISPLAY = ""
@@ -46,6 +54,7 @@ object ToolbarFactory {
 
 class TabPane (dom:goog.dom.DomHelper, opt_caption:String = "") extends goog.ui.Component (dom) {
 	def addTab (id:String, caption:String, tooltip:String, content:Element) {}
+	def setSelectedTabId (id:String) {}
 }
 
 object messages {

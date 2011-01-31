@@ -97,7 +97,7 @@ object JsPrinter {
 			
 			// applies on super
 			case JsApply (JsSelect(JsSuper(qualifier), name, tpe), params) => {
-				print(qualifier) + ".superClass_." + name + ".call(this, " + params.map(print).mkString(", ") + ")"
+				print(qualifier) + ".superClass_." + name + ".call(this" + (if (params.length > 0) ", " else "") + params.map(print).mkString(", ") + ")"
 			}
 			
 			// not sure if this one is necessary
@@ -162,6 +162,10 @@ object JsPrinter {
 				val last = "}\n"
 				
 				condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
+			}
+			
+			case JsTernary (cond, thenp, elsep) => {
+				"("+print(cond)+" ? "+print(thenp)+":"+print(elsep)+")"
 			}
 			
 			case JsThrow (expr) => {
@@ -293,16 +297,18 @@ object JsPrinter {
 				}
 			}).mkString("\n") + "\n"
 			*/
-			val content = properties.collect({
+			val props = properties.collect({
 				case p @ JsProperty(_,_,_,rhs,_) if !rhs.isInstanceOf[JsLiteral] && !rhs.isInstanceOf[JsEmpty] => p
 			}).map((p) => p match {
 				case JsProperty(owner, name, tpe, rhs, mods) => "this." + name + " = " + print(rhs)
 			}).mkString("\n") + "\n"
 			
+			val content = classBody.filterNot(_.isInstanceOf[JsVar]).map(print).mkString("\n")+"\n"
+			
 			val close = "};\n" 
 			val ext = superClass.map( (s) => "goog.inherits("+print(owner)+", "+s.toString+");\n" ).getOrElse("")
 			
-			jsdoc + sig + indent(getDefaultParamsInit(params)) + "\n" + indent(body) + indent(content) + close + ext + "\n"
+			jsdoc + sig + indent(getDefaultParamsInit(params)) + "\n" + indent(body) + indent(props) + indent(content) + close + ext + "\n"
 		}
 	}
 	

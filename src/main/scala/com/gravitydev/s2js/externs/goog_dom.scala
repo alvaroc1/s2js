@@ -23,6 +23,9 @@ class DomHelper {
 	def getDocument ():Document = null
 	def getWindow ():Window = null
 	def createElement (name:String):Element = null
+	def getElement (id:String) : Element = null
+	def getElement (id:Element) : Element = null
+	
 }
 
 object classes {

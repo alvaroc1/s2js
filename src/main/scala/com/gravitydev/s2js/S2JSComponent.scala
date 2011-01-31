@@ -122,6 +122,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		}
 		
 		def getConstructor (c:ClassDef, const:DefDef) = {
+			
+			val body = for (child <- c.impl.body if child != EmptyTree && !child.isInstanceOf[DefDef] && !child.symbol.isParamAccessor) yield getJsTree(child)
+			
 			JsConstructor(
 				getType(const.symbol.owner),
 				for (v @ ValDef(mods, name, tpt, rhs) <- const.vparamss.flatten) yield getParam(v),
@@ -433,7 +436,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 			//case c @ ClassDef(_,_,_,_) => getClass(c)
 			
-			case If(cond, thenp, elsep) => JsIf(getJsTree(cond), getJsTree(thenp), getJsTree(elsep))
+			case If(cond, thenp, elsep) => {
+				JsIf(getJsTree(cond), getJsTree(thenp), getJsTree(elsep))
+			}
 			
 			case Super (qual, mix) => {
 				JsSuper(getType(node.symbol).asInstanceOf[JsSelect])
@@ -745,6 +750,15 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				// toString on XML literal
 				case JsApply ( JsSelect(_, "toString", JsSelectType.Method ), Nil ) => {
 					JsVoid()
+				}
+				
+				// ternary
+				// TODO: there are a lot more, should probably do this with any function application
+				case JsVar (id, tpe, JsIf(cond, thenp, elsep)) => {
+					JsVar(id, tpe, JsTernary(cond, thenp, elsep))
+				}
+				case JsAssign (lhs, JsIf(cond, thenp, elsep)) => {
+					JsAssign (lhs, JsTernary(cond, thenp, elsep))
 				}
 				
 				case x => visit[JsTree]{x}

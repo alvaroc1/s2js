@@ -10,6 +10,8 @@ class Window {
 		var href = ""
 	}
 	def focus () {}
+	
+	def setTimeout (fn:()=>Unit, milliseconds:Int) {}
 }
 
 object window extends Window {}
@@ -31,11 +33,16 @@ class Element extends Node {
 
 class HTMLAnchorElement extends Element
 class HTMLDivElement extends Element
+class HTMLInput extends Element {
+	def focus () {}
+}
 
 class Document {
 	val body:Element = null
 	def execCommand(command:String, showDefaultUI:Boolean, value:String) {}
 }
+
+object document extends Document
 
 class Range {
 	def insertNode (n:Node) {}

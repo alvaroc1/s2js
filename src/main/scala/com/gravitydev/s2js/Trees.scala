@@ -27,6 +27,7 @@ case class JsSelect (qualifier:JsTree, name:String, selectType:JsSelectType.Valu
 case class JsIdent (name:String) extends JsTree
 case class JsThis () extends JsTree
 case class JsIf (cond:JsTree, thenp:JsTree, elsep:JsTree) extends JsTree
+case class JsTernary (cond:JsTree, thenp:JsTree, elsep:JsTree) extends JsTree
 case class JsAssign (lhs:JsTree, rhs:JsTree) extends JsTree
 case class JsComparison (lhs:JsTree, operator:String, rhs:JsTree) extends JsTree
 

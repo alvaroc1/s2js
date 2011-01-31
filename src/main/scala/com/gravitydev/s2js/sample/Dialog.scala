@@ -218,7 +218,7 @@ class Dialog (
 	
 	def getDraggable = draggable_
 	
-	def createDom () {
+	override def createDom () {
 		manageBackgroundDom_()
 		
 		val dom = getDomHelper
