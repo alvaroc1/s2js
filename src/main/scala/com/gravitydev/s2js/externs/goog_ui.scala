@@ -119,12 +119,16 @@ class FlatButtonRenderer extends ButtonRenderer
 object FlatButtonRenderer {
 	def getInstance ():FlatButtonRenderer = null
 }
+
 class FlatMenuButtonRenderer extends FlatButtonRenderer
+
 object FlatMenuButtonRenderer {
 	def getInstance ():FlatMenuButtonRenderer = null
 }
 
-class ToggleButton (content:AnyRef /* ControlContent */, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Button (content, renderer, domHelper)
+class HsvPalette extends Component
+
+class HsvaPalette (opt_domHelper:goog.dom.DomHelper=null, opt_color:String="", opt_alpha:Int=0, opt_class:String="") extends HsvPalette
 
 class Menu (opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuRenderer=null) extends Container {
 	def addItem (item:MenuItem) {}
@@ -184,8 +188,20 @@ class Separator (opt_renderer:MenuSeparatorRenderer=null, op_domHelper:goog.dom.
 
 class Tab (content:goog.ui.ControlContent, opt_renderer:goog.ui.TabRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends Control (content, opt_renderer, opt_domHelper)
 
+class TabBar (opt_location:String="", opt_renderer:TabBarRenderer=null, opt_domHelper:goog.dom.DomHelper=null)
+
+class TabBarRenderer extends ContainerRenderer
+
+object TabBarRenderer {
+	def getInstance():TabBarRenderer = null
+}
+
 class TabRenderer extends ControlRenderer
+
+class ToggleButton (content:AnyRef /* ControlContent */, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Button (content, renderer, domHelper)
+
 
 class Toolbar (renderer:ToolbarRenderer, orientation:Any = null, domHelper:DomHelper = null)
 
 class ToolbarRenderer
+

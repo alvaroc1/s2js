@@ -1,10 +1,22 @@
-package gravity.ui
+package pages
 
-import browser.HTMLInput
+import browser._
+import goog.ui.{Dialog, HsvaPalette}
+import goog.events.Event
 
-class Test {
+object demo {
 	def main {
-		val i = new HTMLInput
-		i.value = if (true) "yes" else "no"
+		val d = new Dialog
+		d.setTitle("Welcome!")
+		d.setContent("This is my welcome dialog")
+		
+		val button = goog.dom.getElement("say-welcome-button")
+		
+		goog.events.listen(button, "click", (e:Event) => {
+			d.setVisible(true)
+		})
+		
+		val palette = new HsvaPalette()
+		palette.render(goog.dom.getElement("demo"))
 	}
 }
