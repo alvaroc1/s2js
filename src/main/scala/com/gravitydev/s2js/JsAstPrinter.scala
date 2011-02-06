@@ -45,12 +45,13 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsSelect(qualifier, name, t) => {
+		case JsSelect(qualifier, name, t, tpe) => {
 			"JsSelect(\n" +
 			indent(
 				"qualifier: " + print(qualifier) + ",\n" + 
 				"name: " + name + "\n" +
-				"type: " + t
+				"type: " + t + "\n" +
+				"returnType: " + tpe 
 			) +
 			")"
 		}

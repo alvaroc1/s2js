@@ -19,6 +19,7 @@ class Component (opt_domHelper:DomHelper=null) {
 	def getId () : String = ""
 	def render (opt_parentElement:Element = null) {}
 	def enterDocument () {}
+	def decorate (element:Element) {}
 }
 
 object Component {
@@ -129,6 +130,10 @@ object FlatMenuButtonRenderer {
 class HsvPalette extends Component
 
 class HsvaPalette (opt_domHelper:goog.dom.DomHelper=null, opt_color:String="", opt_alpha:Int=0, opt_class:String="") extends HsvPalette
+
+class LabelInput (opt_label:String=null, opt_domHelper:goog.dom.DomHelper=null) extends Component {
+	def getValue ():String = ""
+}
 
 class Menu (opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuRenderer=null) extends Container {
 	def addItem (item:MenuItem) {}

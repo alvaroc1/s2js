@@ -15,14 +15,15 @@ case class JsConstructor (owner:JsTree, params:List[JsParam], constructorBody:Li
 case class JsVar (id:String, tpe:JsTree, rhs:JsTree) extends JsTree
 case class JsApply (fun:JsTree, params:List[JsTree]) extends JsTree
 case class JsBlock (stats:List[JsTree], expr:JsTree) extends JsTree
-case class JsLiteral (value:String, tpe:String) extends JsTree
+case class JsLiteral (value:String, tpe:JsBuiltInType.Value) extends JsTree
 case class JsVoid () extends JsTree
 case class JsOther (clazz:String, children:List[JsTree]) extends JsTree
 case class JsProperty (owner:JsTree, name:String, tpt:JsTree, rhs:JsTree, mods:JsModifiers) extends JsTree
 
 case class JsParam (name:String, tpe:JsTree, default:Option[JsTree]) extends JsTree
 
-case class JsSelect (qualifier:JsTree, name:String, selectType:JsSelectType.Value = JsSelectType.Other ) extends JsTree
+/* String for the type will have to do until i can figure out how to get an actual type */
+case class JsSelect (qualifier:JsTree, name:String, selectType:JsSelectType.Value = JsSelectType.Other, tpe:String="" ) extends JsTree
 
 case class JsIdent (name:String) extends JsTree
 case class JsThis () extends JsTree
@@ -59,7 +60,7 @@ case class JsPackage (name:String, children:List[JsTree]) extends JsTree
 
 case class JsArray (elements:List[JsTree]) extends JsTree
 
-case class JsCast (subject:JsTree, tpe:JsSelect) extends JsTree
+case class JsCast (subject:JsTree, tpe:JsTree) extends JsTree
 
 case class JsModifiers (
 	isPrivate:Boolean

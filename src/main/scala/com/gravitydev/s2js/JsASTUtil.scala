@@ -46,11 +46,9 @@ object JsAstUtil {
 				fn(fun),
 				params map fn
 			)
-			case JsSelect(qualifier,name,t) => JsSelect(
-				fn(qualifier),
-				name,
-				t
-			)
+			
+			case JsSelect (qualifier, name, t, tpe) => JsSelect( fn(qualifier), name, t, tpe )
+			
 			case JsMethod(owner, name,params,body,ret) => JsMethod(
 				fn(owner),
 				name,
@@ -92,6 +90,8 @@ object JsAstUtil {
 			case JsReturn (expr) => JsReturn ( fn(expr) )
 			
 			case JsPackage (name, children) => JsPackage(name, applyFnList(children))
+			
+			case JsCast (subject, tpe) => JsCast(fn(subject), fn(tpe))
 			
 			case x:JsSuper => x
 			case x:JsVoid => x

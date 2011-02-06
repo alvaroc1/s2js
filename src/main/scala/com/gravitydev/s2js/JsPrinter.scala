@@ -96,7 +96,7 @@ object JsPrinter {
 			case JsNew ( s ) => "new " + print(s)
 			
 			// applies on super
-			case JsApply (JsSelect(JsSuper(qualifier), name, tpe), params) => {
+			case JsApply (JsSelect(JsSuper(qualifier), name, tpe, returnType), params) => {
 				print(qualifier) + ".superClass_." + name + ".call(this" + (if (params.length > 0) ", " else "") + params.map(print).mkString(", ") + ")"
 			}
 			
@@ -117,9 +117,9 @@ object JsPrinter {
 			*/
 			
 			// other
-			case JsSelect (qualifier, name, t) => {
+			case JsSelect (qualifier, name, t, tpe) => {
 				val s = qualifier match {
-					case s @ JsSelect(q, n, _) => {
+					case s @ JsSelect(q, n, _, _) => {
 						print(s)+"."+name
 					}
 					case JsIdent(n) => n+"."+name
@@ -280,7 +280,7 @@ object JsPrinter {
 			
 			val body = constructorBody.map(_ match {
 				// if calling the super constructor
-				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _ ), params) => {
+				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _, _ ), params) => {
 					// if there is a superclass
 					superClass.map(_+".call(this" + (if (params.length>0) ", " else "") + params.map(print).mkString(", ") + ");\n").mkString("")
 				}
@@ -333,7 +333,7 @@ object JsPrinter {
 	}
 	
 	def printProp (prop:JsProperty) = prop match {
-		case JsProperty (owner @ JsSelect(_,_, t), name, tpt, rhs, mods) => {		
+		case JsProperty (owner @ JsSelect(_,_, t,_), name, tpt, rhs, mods) => {		
 			val docs = List(
 				//private
 				if (mods.isPrivate) Some("@private") else None,
@@ -408,40 +408,45 @@ object JsPrinter {
 		def find (tree:JsTree) : JsTree = {		
 			def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, find).asInstanceOf[T]
 				
-			tree match {
+			tree match {				
 				// ignore members
-				case JsSelect(JsThis(), _, _) => ()
+				case JsSelect(JsThis(), _, _, _) => ()
 				
 				// ignore applications on members
-				case JsSelect(JsSelect(JsThis(),_,_),_,_) => ()
+				case JsSelect(JsSelect(JsThis(),_,_, _),_,_, _) => ()
 				
 				// ignore super calls
-				case JsApply(JsSelect(JsSuper(qualifier),_,_),_) => ()
+				case JsApply(JsSelect(JsSuper(qualifier),_,_, _),_) => ()
 				
 				// ignore right side of JsProperty and JsVar if it's a select, but add the tpe
-				case JsVar(id, tpe @ JsSelect(_,_,_), JsSelect(_,_,_)) => {
+				case JsVar(id, tpe @ JsSelect(_,_,_,_), JsSelect(_,_,_, _)) => {
 					l.append(print(tpe))
 				}
-				case JsProperty(owner, name, tpt @ JsSelect(_,_,_), JsSelect(_,_,_), mods) => {
+				case JsProperty(owner, name, tpt @ JsSelect(_,_,_,_), JsSelect(_,_,_,_), mods) => {
 					l.append(print(tpt))
 				}
 				
+				// TODO: these should be collapsed into one case with guards
 				// select class
-				case s @ JsSelect(_,_,JsSelectType.Class) => {
+				case s @ JsSelect(_,_,JsSelectType.Class,_) => {
 					l.append(print(s))
 				}
 				// select module
-				case JsSelect(s @ JsSelect(_,_,JsSelectType.Module), _, JsSelectType.Method ) => {
+				case JsSelect(s @ JsSelect(_,_,JsSelectType.Module,_), _, JsSelectType.Method, _ ) => {
 					l.append(print(s))
 				}
 				// select package
-				case JsSelect( s @ JsSelect(_,_,JsSelectType.Package), _, JsSelectType.Method ) => {
+				case JsSelect( s @ JsSelect(_,_,JsSelectType.Package,_), _, JsSelectType.Method, _ ) => {
+					l.append(print(s))
+				}
+				// select prop
+				case JsSelect (s @ JsSelect(_,_,JsSelectType.Module,_),_,JsSelectType.Prop,_) => {
 					l.append(print(s))
 				}
 				
 				// TODO: had to move this one down to not conflict with the package one. Gotta figure out what the deal is
 				// ignore applications on local variables
-				case JsSelect(JsIdent(_),_,_) => ()
+				case JsSelect(JsIdent(_),_,_,_) => ()
 
 				case _ => ()
 			}

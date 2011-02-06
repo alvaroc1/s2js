@@ -334,7 +334,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				
 				val pretty = xml.Utility.toXML(x, minimizeTags=true)
 				
-				JsLiteral("'" + pretty + "'", "string")
+				JsLiteral("'" + pretty + "'", JsBuiltInType.StringT)
 				//JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
 			}
 			
@@ -346,10 +346,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			*/
 			
 			// application (select)
-			case Apply(Select(qualifier, name), args) => {
-				val q = qualifier
-				
-				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
+			case Apply(fun @ Select(qualifier, name), args) => {
+				JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method, fun.tpe.resultType.toString ), getJsTreeList(args))
 			}
 			
 			// select (parent != Apply)
@@ -453,7 +451,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			
 			// handle asInstanceOf casts
 			case TypeApply(Select(qualifier, name), args) if name.toString == "asInstanceOf" => {
-				JsCast(getJsTree(qualifier), getType(args(0).symbol).asInstanceOf[JsSelect])
+				JsCast(getJsTree(qualifier), getType(args(0).symbol))
 			}
 			
 			case TypeApply(s, args) => {
@@ -503,11 +501,11 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		
 		def getLiteral (node:Tree):JsLiteral = node match {
 			case Literal(Constant(value)) => value match {
-				case v:String => JsLiteral("\""+v.toString.replace("\"", "\\\"")+"\"", "")
-				case _ => JsLiteral( if (value != null) value.toString else "null", "" )
+				case v:String => JsLiteral("\""+v.toString.replace("\"", "\\\"")+"\"", JsBuiltInType.StringT)
+				case _ => JsLiteral( if (value != null) value.toString else "null", JsBuiltInType.UnknownT )
 			}
 			case a @ _ => {
-				JsLiteral("", "")
+				JsLiteral("", JsBuiltInType.UnknownT)
 			}
 		}
 		
@@ -580,19 +578,19 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				
 				// collapse application of package methods
 				// TODO: come up with better way to identify package objects that doesn't rely on strings, probably with symbol.isPackageObject
-				case JsSelect(JsSelect( q, "package", JsSelectType.Module), name, t) => visit {
+				case JsSelect(JsSelect( q, "package", JsSelectType.Module, _), name, t, _) => visit {
 					JsSelect(q, name, t)
 				}
 				// collapse definition of package methods
-				case JsSelect(JsSelect(q, name, t), "package", JsSelectType.Module) => visit [JsTree] {
+				case JsSelect(JsSelect(q, name, t, _), "package", JsSelectType.Module, _) => visit [JsTree] {
 					JsSelect(q, name, t)
 				}
-				case JsModule(JsSelect(q, name, JsSelectType.Module), "package", props, methods, classes, modules) => visit {
+				case JsModule(JsSelect(q, name, JsSelectType.Module, _), "package", props, methods, classes, modules) => visit {
 					JsModule(q, name, props, methods, classes, modules)
 				}
 				
 				// remove extra select on instantiations
-				case JsSelect(JsNew(tpe), name, t) => visit {
+				case JsSelect(JsNew(tpe), name, t, _) => visit {
 					JsNew(tpe)
 				}
 				
@@ -619,13 +617,21 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					)
 				}
 				
+				// turn method String.length() into property
+				case JsApply(JsSelect(l @ JsLiteral(value, JsBuiltInType.StringT), "length", JsSelectType.Method, _), params) => {
+					JsSelect(l, "length", JsSelectType.Prop, "Int")
+				}
+				case a @ JsApply(JsSelect(JsApply(s @ JsSelect(_,_,_,"String"),_),"length",JsSelectType.Method,"Int"), params) if true => visit [JsApply] {
+					JsSelect(s, "length", JsSelectType.Prop, "Int")
+				}
+				
 				// remove default invocations
-				case JsApply (s, params) => visit {
+				case JsApply (s, params) => visit[JsApply] {
 					JsApply (
 						s,
 						params.filter((p) => {
 							p match {
-								case JsApply(JsSelect(_, name, _), params) if name contains "$default$" => false
+								case JsApply(JsSelect(_, name, _, _), params) if name contains "$default$" => false
 								case x => true
 							}
 						})
@@ -633,12 +639,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				}
 				
 				// collapse predefs selections
-				case JsSelect(JsThis(), "Predef", _) => {
+				case JsSelect(JsThis(), "Predef", _, _) => {
 					JsPredef()
 				}
-				case JsSelect(JsIdent("scala"), "Predef", _) => {
+				case JsSelect(JsIdent("scala"), "Predef", _, _) => {
 					JsPredef()
 				}
+				
 				case x => visit[JsTree](x)
 			}
 		}
@@ -649,13 +656,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			tree match {
 				
 				// maps
-				case JsApply( JsTypeApply( JsApply( JsSelect( JsSelect ( JsPredef(), "Map", _), "apply", _), _), List(JsBuiltInType(JsBuiltInType.StringT), _) ), args ) => visit {
+				case JsApply( JsTypeApply( JsApply( JsSelect( JsSelect ( JsPredef(), "Map", _,_), "apply", _,_), _), List(JsBuiltInType(JsBuiltInType.StringT), _) ), args ) => visit {
 					val argss = args
 					JsMap(
 						args.map((a) => {
 							val m = a match {
 								// whew!
-								case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _), _), _), List(JsLiteral(key,_))), _, _), _), _), List(value)) => {
+								case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _, _), _), _), List(JsLiteral(key,_))), _, _, _), _), _), List(value)) => {
 									Map("key"->key.stripPrefix("\"").stripSuffix("\""), "value"->value)
 								}
 							}
@@ -674,15 +681,18 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 								JsSelect( 
 									JsSelect( 
 										JsSelect(
-											JsSelect(JsIdent("scala"), "collection", JsSelectType.Module), 
+											JsSelect(JsIdent("scala"), "collection", JsSelectType.Module, _), 
 											"immutable", 
-											JsSelectType.Module
+											JsSelectType.Module,
+											_
 										), 
 										"List", 
-										JsSelectType.Module
+										JsSelectType.Module,
+										_
 									), 
 									"apply", 
-									JsSelectType.Method
+									JsSelectType.Method,
+									_
 								), 
 								_
 							), 
@@ -692,7 +702,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					) => {
 					JsArray(params)
 				}
-				case JsSelect(JsSelect(JsSelect(JsIdent("scala"), "collection", JsSelectType.Module), "immutable", JsSelectType.Module), "List", JsSelectType.Class) => {
+				case JsSelect(JsSelect(JsSelect(JsIdent("scala"), "collection", JsSelectType.Module, _), "immutable", JsSelectType.Module, _), "List", JsSelectType.Class, _) => {
 					JsBuiltInType(JsBuiltInType.ArrayT)
 				}
 				
@@ -702,34 +712,34 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				}
 				
 				// println 
-				case JsSelect(JsPredef(), "println", t) => visit {
+				case JsSelect(JsPredef(), "println", t, _) => visit {
 					JsSelect(JsIdent("console"), "log", t)
 				}
 				
 				// mkString on List
 				// TODO: anything for right now, will narrow down to list later (not sure how yet)
-				case JsApply(JsSelect(q, "mkString", t), List(glue)) => visit {
+				case JsApply(JsSelect(q, "mkString", t, _), List(glue)) => visit {
 					JsApply(JsSelect(q, "join", t), List(glue))
 				}
 				
 				
 				// unary bang
-				case JsApply( JsSelect(qualifier, "unary_$bang", t), _) => visit {
+				case JsApply( JsSelect(qualifier, "unary_$bang", t, _), _) => visit {
 					JsUnaryOp(qualifier, "!")
 				}
 				
 				// infix ops
-				case JsApply( JsSelect(q, name, t), args) if infixOperatorMap contains name => visit [JsTree] {
+				case JsApply( JsSelect(q, name, t, _), args) if infixOperatorMap contains name => visit [JsTree] {
 					JsInfixOp(q, args(0), infixOperatorMap.get(name).get)
 				}
 				
 				// plain exception
-				case JsThrow( JsApply( JsNew( JsSelect( JsSelect( JsIdent("scala"), "package",_ ), "Exception", _) ), params) ) => visit {
+				case JsThrow( JsApply( JsNew( JsSelect( JsSelect( JsIdent("scala"), "package",_, _ ), "Exception", _, _) ), params) ) => visit {
 					JsThrow( JsApply( JsNew(JsIdent("Error")), params) )
 				}
 				
 				// comparisons
-				case JsApply( JsSelect(qualifier, name, _), args) if comparisonMap contains name.toString => visit [JsTree] {
+				case JsApply( JsSelect(qualifier, name, _, _), args) if comparisonMap contains name.toString => visit [JsTree] {
 					JsComparison(
 						qualifier,
 						(comparisonMap get name.toString).get,
@@ -738,18 +748,24 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				}
 				
 				// browser 
-				case JsSelect( JsIdent("browser"), name, t) => visit {
+				case JsSelect( JsIdent("browser"), name, t, _) => visit {
 					JsIdent(name)
 				}
 				
 				// scala.Unit
-				case JsSelect ( JsIdent("scala"), "Unit", t) => visit {
+				case JsSelect ( JsIdent("scala"), "Unit", t, _) => visit {
 					JsVoid()
 				}
 				
 				// toString on XML literal
-				case JsApply ( JsSelect(_, "toString", JsSelectType.Method ), Nil ) => {
+				case JsApply ( JsSelect(_, "toString", JsSelectType.Method, _ ), Nil ) => {
 					JsVoid()
+				}
+				
+				// method applications with no parameter list
+				// turn them into method applications with empty parameter list
+				case JsSelect( s @ JsSelect(_,_,JsSelectType.Method,_), name, t, ret) => visit [JsSelect] {
+					JsSelect( JsApply(s, Nil), name, t, ret )
 				}
 				
 				// ternary

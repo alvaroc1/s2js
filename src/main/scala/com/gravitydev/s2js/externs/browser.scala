@@ -4,6 +4,12 @@ object `package` {
 	def alert (s:Any) {}
 }
 
+/*
+class Object extends scala.collection.Map[String, Any] {
+	def - (key:String) = super.-(key)
+}
+*/
+
 class Window {
 	def get(key:String) = ""
 	object location {
@@ -35,6 +41,9 @@ class HTMLAnchorElement extends Element
 class HTMLDivElement extends Element
 class HTMLInput extends Element {
 	def focus () {}
+}
+class HTMLButton extends Element {
+	var disabled = false
 }
 
 class Document {
