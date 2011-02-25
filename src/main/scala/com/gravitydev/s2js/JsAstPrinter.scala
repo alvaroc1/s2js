@@ -37,11 +37,12 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsApply (fun, params) => {
+		case JsApply (fun, params, ret) => {
 			"JsApply (\n" +
 			indent(
 				"fun: " + print(fun) + "\n" +
-				"params: " + printList(params) + "\n" 
+				"params: " + printList(params) + "\n" +
+				"retType: " + ret + "\n"
 			) +
 			")"
 		}
@@ -145,6 +146,21 @@ object JsAstPrinter {
 			indent(
 				"name: " + name + "\n" +
 				"children: " + printList(children) + "\n"
+			) +
+			")"
+		}
+		case JsReturn (expr) => {
+			"JsReturn(\n" +
+			indent(
+				"expr: " + print(expr) + "\n"	
+			) +
+			")"
+		}
+		case JsCast (subject, tpe) => {
+			"JsCast(\n" +
+			indent(
+				"subject: " + print(subject) + "\n" +
+				"tpe: " + print(tpe) + "\n"
 			) +
 			")"
 		}

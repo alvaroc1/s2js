@@ -11,7 +11,7 @@ import goog.ui.Component
 import goog.dom.DomHelper
 import goog.events.FocusHandler
 import goog.fx.Dragger
-import browser.Element
+import browser.{Object, Element}
 
 class Dialog (
 	val class_ :String = goog.getCssName("modal-dialog"), 
@@ -228,7 +228,7 @@ class Dialog (
 		
 		titleEl_ = dom.createDom(
 			"div",
-			Map("className"->goog.getCssName(class_, "title"), "id"->getId),
+			Object("className"->goog.getCssName(class_, "title"), "id"->getId),
 			titleTextEl_,
 			titleCloseEl_
 		)
@@ -237,12 +237,12 @@ class Dialog (
 		
 		buttonEl_ = dom.createDom("div", goog.getCssName(class_, "buttons"))
 		
-		tabCatcherEl_ = dom.createDom("span", Map("tabIndex"->0))
+		tabCatcherEl_ = dom.createDom("span", Object("tabIndex"->0))
 		
 		setElementInternal(
 			dom.createDom(
 				"div",
-				Map("className" -> class_, "tabIndex" -> 0),
+				Object("className" -> class_, "tabIndex" -> 0),
 				titleEl_,
 				contentEl_,
 				buttonEl_,
@@ -339,7 +339,7 @@ object Dialog {
 				element_.innerHTML = ""
 				val domHelper = goog.dom.getDomHelper(element_)
 				goog.structs.forEach(this, (caption, key) => {
-					var button = domHelper.createDom("button", Map("name"->key), caption)
+					var button = domHelper.createDom("button", Object("name"->key), caption)
 				})
 			}
 		}

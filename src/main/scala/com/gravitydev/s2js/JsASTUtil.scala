@@ -38,7 +38,7 @@ object JsAstUtil {
 				constructorBody map fn,
 				classBody map fn
 			)
-			case JsApply(fun,params) => JsApply(
+			case JsApply(fun,params,_) => JsApply(
 				fn(fun),
 				params map fn
 			)
@@ -92,6 +92,8 @@ object JsAstUtil {
 			case JsPackage (name, children) => JsPackage(name, applyFnList(children))
 			
 			case JsCast (subject, tpe) => JsCast(fn(subject), fn(tpe))
+			
+			case JsArrayAccess (array, index) => JsArrayAccess(fn(array), fn(index))
 			
 			case x:JsSuper => x
 			case x:JsVoid => x

@@ -3,6 +3,7 @@ package goog.dom
 import browser._
 
 object `package` {
+	@deprecated("Use getElement")
 	def $ (id:String):Element = null
 	def getElement (id:String) : Element = null
 	def removeNode (node:Element) {}
@@ -11,7 +12,7 @@ object `package` {
 	def setTextContent(el:Element, content:String) {}
 	def createDom (tag:String, others:AnyRef*):Element = null
 	def insertSiblingBefore (el1:Element, el2:Element) {}
-	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Element = null
+	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Node = null
 	def flattenElement (element:Element):Element = null
 	def appendChild (parent:Node, child:Node) {}
 	def getElementsByTagNameAndClass (opt_tag:String="", opt_class:String="", opt_el:Element=null):List[Element] = null
@@ -19,13 +20,12 @@ object `package` {
 
 class DomHelper {
 	def insertSiblingBefore (el1:Element, el2:Element) {}
-	def createDom (tag:String, others:Object*):Element = null
+	def createDom (tag:String, opt_attributes:Any, args:Any*):Element = null
 	def getDocument ():Document = null
 	def getWindow ():Window = null
 	def createElement (name:String):Element = null
 	def getElement (id:String) : Element = null
 	def getElement (id:Element) : Element = null
-	
 }
 
 object classes {

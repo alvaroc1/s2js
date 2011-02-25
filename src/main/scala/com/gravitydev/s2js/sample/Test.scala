@@ -1,11 +1,11 @@
-package pages
+package vanity2.util
 
 import browser._
-
-import goog.ui.LabelInput
-
-object labels {
-	def main {
-		val e = goog.events.KeyCodes.ENTER
-	}
+import goog.dom._
+import goog.events.Event
+import goog.net.XhrIo
+import vanity2.util.Implicits._
+	
+class Test {
+	var x = ()=>Unit
 }

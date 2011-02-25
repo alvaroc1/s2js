@@ -96,12 +96,12 @@ object JsPrinter {
 			case JsNew ( s ) => "new " + print(s)
 			
 			// applies on super
-			case JsApply (JsSelect(JsSuper(qualifier), name, tpe, returnType), params) => {
+			case JsApply (JsSelect(JsSuper(qualifier), name, tpe, returnType), params, _) => {
 				print(qualifier) + ".superClass_." + name + ".call(this" + (if (params.length > 0) ", " else "") + params.map(print).mkString(", ") + ")"
 			}
 			
 			// not sure if this one is necessary
-			case JsApply (fun, params) => {
+			case JsApply (fun, params, _) => {
 				print(fun) + "(" + params.map(print).mkString(", ") + ")"
 			}
 			
@@ -122,7 +122,7 @@ object JsPrinter {
 					case s @ JsSelect(q, n, _, _) => {
 						print(s)+"."+name
 					}
-					case JsIdent(n) => n+"."+name
+					case JsIdent(n,_) => n+"."+name
 					case JsThis() => "this."+name
 					case x => {
 						//println(x)
@@ -134,7 +134,7 @@ object JsPrinter {
 				s
 			}
 			
-			case JsIdent (name)  => {
+			case JsIdent (name,_)  => {
 				name
 			}
 			
@@ -180,7 +180,16 @@ object JsPrinter {
 				"var "+id+" = " + print(rhs)+";\n"
 			}
 			case JsBlock (stats, expr) => {
-				(stats.map(printWithSemiColon) ::: List(printWithSemiColon(expr))).mkString("")
+				(
+					stats.map((x) => x match {
+						// methods found in JsBlock are local functions
+						case m @ JsMethod(_,_,_,_,_) => printLocalFunction(m)
+						
+						case _ => printWithSemiColon(x)
+					}) 
+					
+					::: List(printWithSemiColon(expr))
+				).mkString("")
 				//children.map(printWithSemiColon).mkString("")
 			}
 			
@@ -192,14 +201,15 @@ object JsPrinter {
 			
 			case JsParam (name, tpe, default) => name
 			
-			case JsBuiltInType (t) => t match {
-				case JsBuiltInType.StringT => "string"
-				case JsBuiltInType.BooleanT => "boolean"
-				case JsBuiltInType.NumberT => "number"
-				case JsBuiltInType.AnyT => "Object"
-				case JsBuiltInType.ArrayT => "Array"
-				case JsBuiltInType.UnknownT  => "UNKNOWN"
-			}
+			case JsType.StringT => "string"
+			case JsType.BooleanT => "boolean"
+			case JsType.NumberT => "number"
+			case JsType.AnyT => "Object"
+			case JsType.ArrayT => "Array"
+			case JsType.UnknownT  => "UNKNOWN"
+			
+			case JsType (name, typeParams) => name
+			
 			
 			case JsTypeApply (fun, args) => {
 				"TYPEAPPLY: " + print(fun) + "(" + args.map(print).mkString(", ") + ")"
@@ -233,12 +243,28 @@ object JsPrinter {
 			case JsCast (subject, tpe) => {
 				"/** @type {" + print(tpe) + "} */ (" + print(subject) + ")"
 			}
+			
+			case JsArrayAccess (subject, index) => {
+				print(subject) + "[" + print(index) + "]"
+			}
 		}
 	}
 	
 	def printType (node:JsTree) = node match {
 		case JsParam(_,tpe,default) => {
-			"{" + print(tpe) + default.map((a)=>"=").mkString("") + "}" // annotate default param
+			"{" + printTypeForAnnotation(tpe) + default.map((a)=>"=").mkString("") + "}" // annotate default param
+		}
+	}
+	
+	def printTypeForAnnotation (node:JsTree) = {
+		node match {
+			case JsType.FunctionT => "Function"
+		
+			// the previous one should catch everything, but just in case
+			case JsSelect(JsIdent("scala",_), "Function1", JsSelectType.Class,_) => {
+				"Function"
+			}
+			case _ => print(node)
 		}
 	}
 	
@@ -262,6 +288,22 @@ object JsPrinter {
 		params.filter(_.default.isDefined).map((p) => "var "+p.name+" = opt_" + p.name + " || " + print(p.default.get) +";\n").mkString("")
 	}
 	
+	def printLocalFunction (m:JsMethod) = {
+		// jsdoc
+		val l = new ListBuffer[String]()
+		m.params foreach ((p) => l += getParamDoc(p))
+		if (m.ret != JsVoid()) l += "@return {"+print(m.ret)+"}"
+		val jsdoc = doc(l.toList)
+		
+		val start = "var " + m.name + " = function (" + printParamList(m.params) + ") {\n"
+		val middle = indent(
+			print(m.body)
+		)
+		val end = "};\n"
+			
+		jsdoc + start + indent(getDefaultParamsInit(m.params)) + middle + end
+	}
+	
 	def printConstructor (c:JsClass, const:JsConstructor, properties:List[JsTree]) = const match {
 		case JsConstructor(owner, params, constructorBody, classBody) => {
 				
@@ -280,7 +322,7 @@ object JsPrinter {
 			
 			val body = constructorBody.map(_ match {
 				// if calling the super constructor
-				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _, _ ), params) => {
+				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _, _ ), params,_) => {
 					// if there is a superclass
 					superClass.map(_+".call(this" + (if (params.length>0) ", " else "") + params.map(print).mkString(", ") + ");\n").mkString("")
 				}
@@ -416,7 +458,10 @@ object JsPrinter {
 				case JsSelect(JsSelect(JsThis(),_,_, _),_,_, _) => ()
 				
 				// ignore super calls
-				case JsApply(JsSelect(JsSuper(qualifier),_,_, _),_) => ()
+				case JsApply(JsSelect(JsSuper(qualifier),_,_, _),_,_) => ()
+				
+				// ignore function types
+				case JsSelect(JsIdent("scala",_),_,JsSelectType.Class,_) => ()
 				
 				// ignore right side of JsProperty and JsVar if it's a select, but add the tpe
 				case JsVar(id, tpe @ JsSelect(_,_,_,_), JsSelect(_,_,_, _)) => {
@@ -446,7 +491,7 @@ object JsPrinter {
 				
 				// TODO: had to move this one down to not conflict with the package one. Gotta figure out what the deal is
 				// ignore applications on local variables
-				case JsSelect(JsIdent(_),_,_,_) => ()
+				case JsSelect(JsIdent(_,_),_,_,_) => ()
 
 				case _ => ()
 			}
@@ -455,7 +500,8 @@ object JsPrinter {
 		
 		find(tree)
 		
-		l.toList
+		// remove anything that ends in underscore
+		l.filterNot(_.endsWith("_")).toList
 	}
 	
 }

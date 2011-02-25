@@ -90,13 +90,23 @@ object CustomButtonRenderer {
 }
 
 class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomHelper = null) extends Component (domHelper) {
+	var title_ : String = _
+	var content_ : String = _
+	var buttons_ : Dialog.ButtonSet = _
 	var titleEl_ : Element = _
+	var titleTextEl_ : Element = _
+	var titleId_ : String = _
+	var titleCloseEl_ : Element = _
+	var contentEl_ : Element = _
+	var buttonEl_ : Element = _
 	
 	def manageBackgroundDom_() {}
 	def setTitle (title:String) {}
 	def setContent (html:String) {}
 	def setVisible (visible:Boolean) {}
 	def setButtonSet (buttonSet:Dialog.ButtonSet) {}
+	def setDisposeOnHide(b:Boolean) {}
+	def getDialogElement ():Element = null
 }
 
 object Dialog {
@@ -109,7 +119,18 @@ object Dialog {
 		val SELECT = "select"
 		val AFTER_HIDE = "after_hide"
 	}
-	class ButtonSet extends goog.structs.Map
+	class ButtonSet extends goog.structs.Map {
+		var class_ :String = _
+		var defaultButton_ :String = _
+		var element_ :Element = _
+		var cancelButton_ :String = _
+		
+		def set (key:String, caption:String, opt_isDefault:Boolean = false, opt_isCancel:Boolean = false) = this
+		def addButton (button:AnyRef, opt_isDefault:Boolean = false, opt_isCancel:Boolean = false) {}
+		def attachToElement (el:Element) {}
+		def render () {}
+		def decorate (el:Element) {}
+	}
 }
 
 class FilteredMenu (opt_renderer:MenuRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends Menu {
@@ -133,6 +154,7 @@ class HsvaPalette (opt_domHelper:goog.dom.DomHelper=null, opt_color:String="", o
 
 class LabelInput (opt_label:String=null, opt_domHelper:goog.dom.DomHelper=null) extends Component {
 	def getValue ():String = ""
+	def clear () {}
 }
 
 class Menu (opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuRenderer=null) extends Container {
