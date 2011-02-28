@@ -38,7 +38,7 @@ object JsAstUtil {
 				constructorBody map fn,
 				classBody map fn
 			)
-			case JsApply(fun,params,_) => JsApply(
+			case JsApply(fun,params) => JsApply(
 				fn(fun),
 				params map fn
 			)

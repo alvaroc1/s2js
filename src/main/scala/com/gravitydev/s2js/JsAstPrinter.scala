@@ -37,12 +37,11 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsApply (fun, params, ret) => {
+		case JsApply (fun, params) => {
 			"JsApply (\n" +
 			indent(
 				"fun: " + print(fun) + "\n" +
-				"params: " + printList(params) + "\n" +
-				"retType: " + ret + "\n"
+				"params: " + printList(params) + "\n"
 			) +
 			")"
 		}

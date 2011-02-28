@@ -55,7 +55,7 @@ object JsPrinter {
 			}
 			
 			case JsModule (owner, name, props, methods, classes, modules) => {
-				val p = props.map(printProp(_)+"\n").mkString("")
+				val p = props.map(printModuleProp(_)+"\n").mkString("")
 				
 				val methds = methods.map(print).mkString("")
 				
@@ -96,12 +96,12 @@ object JsPrinter {
 			case JsNew ( s ) => "new " + print(s)
 			
 			// applies on super
-			case JsApply (JsSelect(JsSuper(qualifier), name, tpe, returnType), params, _) => {
+			case JsApply (JsSelect(JsSuper(qualifier), name, tpe, returnType), params) => {
 				print(qualifier) + ".superClass_." + name + ".call(this" + (if (params.length > 0) ", " else "") + params.map(print).mkString(", ") + ")"
 			}
 			
 			// not sure if this one is necessary
-			case JsApply (fun, params, _) => {
+			case JsApply (fun, params) => {
 				print(fun) + "(" + params.map(print).mkString(", ") + ")"
 			}
 			
@@ -322,7 +322,7 @@ object JsPrinter {
 			
 			val body = constructorBody.map(_ match {
 				// if calling the super constructor
-				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _, _ ), params,_) => {
+				case JsApply( JsSelect( JsSuper(qualifier), "<init>", _, _ ), params) => {
 					// if there is a superclass
 					superClass.map(_+".call(this" + (if (params.length>0) ", " else "") + params.map(print).mkString(", ") + ");\n").mkString("")
 				}
@@ -374,6 +374,9 @@ object JsPrinter {
 		}
 	}
 	
+	/**
+	 * Non-literal class props need to be initialized in the construtor
+	 */
 	def printProp (prop:JsProperty) = prop match {
 		case JsProperty (owner @ JsSelect(_,_, t,_), name, tpt, rhs, mods) => {		
 			val docs = List(
@@ -393,6 +396,32 @@ object JsPrinter {
 				case JsLiteral(value, tpe) => value
 				case _ => "null"
 			}
+			
+			val prop = print(owner)+"." + (if (t == JsSelectType.Class) "prototype." else "") + name + " = " + r + ";\n"
+			
+			jsdoc + prop + "\n"
+		}
+	}
+	
+	/**
+	 * Module properties need to be initialized in place
+	 */
+	def printModuleProp (prop:JsProperty) = prop match {
+		case JsProperty (owner @ JsSelect(_,_, t,_), name, tpt, rhs, mods) => {		
+			val docs = List(
+				//private
+				if (mods.isPrivate) Some("@private") else None,
+				
+				// type
+				Some("@type {"+print(tpt)+"}")
+				
+				// collapse 
+			).flatMap(_.toList.flatMap(List(_)))
+			
+			val jsdoc = doc(docs)
+		
+			// right hand side
+			val r = print(rhs)
 			
 			val prop = print(owner)+"." + (if (t == JsSelectType.Class) "prototype." else "") + name + " = " + r + ";\n"
 			
@@ -458,7 +487,7 @@ object JsPrinter {
 				case JsSelect(JsSelect(JsThis(),_,_, _),_,_, _) => ()
 				
 				// ignore super calls
-				case JsApply(JsSelect(JsSuper(qualifier),_,_, _),_,_) => ()
+				case JsApply(JsSelect(JsSuper(qualifier),_,_, _),_) => ()
 				
 				// ignore function types
 				case JsSelect(JsIdent("scala",_),_,JsSelectType.Class,_) => ()

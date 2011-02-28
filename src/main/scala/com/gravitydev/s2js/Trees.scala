@@ -24,7 +24,7 @@ case class JsParam (name:String, tpe:JsTree, default:Option[JsTree]) extends JsT
 /* String for the type will have to do until i can figure out how to get an actual type */
 case class JsSelect (qualifier:JsTree, name:String, selectType:JsSelectType.Value, tpe:JsType=null ) extends JsTree
 case class JsIdent (name:String, tpe:JsType=null) extends JsTree
-case class JsApply (fun:JsTree, params:List[JsTree], retType:String="") extends JsTree
+case class JsApply (fun:JsTree, params:List[JsTree]) extends JsTree
 
 case class JsType (name:String, typeParams:List[String]=Nil) extends JsTree
 trait JsBuiltInType

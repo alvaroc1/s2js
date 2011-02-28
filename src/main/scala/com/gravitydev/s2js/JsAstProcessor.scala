@@ -57,7 +57,7 @@ object JsAstProcessor {
 				JsNew(tpe)
 			}
 			
-			// collapse predefs selections
+			// ===  collapse predefs selections ===
 			case JsSelect(JsThis(), "Predef", _, _) => {
 				JsPredef()
 			}
@@ -94,12 +94,11 @@ object JsAstProcessor {
 						JsSelectType.Method,
 						returnType
 					),
-					params,
-					retType
+					params
 				) => {
 					JsMap(
 						params.collect({
-							case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _, _), _, _), _), List(JsLiteral(key,_)), _), _, _, _), _, _), _), List(value),_) => {
+							case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _, _), _), _), List(JsLiteral(key,_))), _, _, _), _), _), List(value)) => {
 								JsMapElement(key.stripPrefix("\"").stripSuffix("\""), value)
 							}
 						})
@@ -126,13 +125,11 @@ object JsAstProcessor {
 								JsSelectType.Method,
 								_
 							), 
-							_,
 							_
 						), 
 						_
 					), 
-					params,
-					_
+					params
 				) => {
 				JsArray(params)
 			}
@@ -147,7 +144,7 @@ object JsAstProcessor {
 		
 		tree match {
 			// strange setup here: the inner apply's selector goes with the outer apply's paras
-			case JsApply(JsTypeApply (JsApply(s, _, _), _), params, _) => visit {
+			case JsApply(JsTypeApply (JsApply(s, _), _), params) => visit {
 				JsApply(s, params)
 			}
 			// remove applications in params, which are not wrapped by an apply
@@ -173,12 +170,12 @@ object JsAstProcessor {
 			case JsAssign (lhs, i @ JsIf(_,_,_)) => visit {
 				JsAssign (lhs, jsIfToTernary(i))
 			}
-			case a @ JsApply (fun, params, retType) => visit {
+			case a @ JsApply (fun, params) => visit {
 				println("test")
 				JsApply(fun, params.map(_ match {
 					case i:JsIf => jsIfToTernary(i)
 					case x => x
-				}), retType)
+				}))
 			}
 			
 			case x => visit[JsTree](x)
@@ -219,20 +216,20 @@ object JsAstProcessor {
 			}
 			
 			// turn method String.length() into property
-			case JsApply(JsSelect(l @ JsLiteral(value, JsType.StringT), "length", JsSelectType.Method, _), params,_) => {
+			case JsApply(JsSelect(l @ JsLiteral(value, JsType.StringT), "length", JsSelectType.Method, _), params) => {
 				JsSelect(l, "length", JsSelectType.Prop, JsType.IntT)
 			}
-			case a @ JsApply(JsSelect(JsApply(s @ JsSelect(_,_,_, JsType.StringT),_,_),"length",JsSelectType.Method, JsType.IntT), params,_) if true => visit [JsApply] {
+			case a @ JsApply(JsSelect(JsApply(s @ JsSelect(_,_,_, JsType.StringT),_),"length",JsSelectType.Method, JsType.IntT), params) if true => visit [JsApply] {
 				JsSelect(s, "length", JsSelectType.Prop, JsType.IntT)
 			}
 			
 			// remove default invocations
-			case JsApply (s, params,_) => visit[JsApply] {
+			case JsApply (s, params) => visit[JsApply] {
 				JsApply (
 					s,
 					params.map(visit[JsTree]).filter((p) => {
 						p match {
-							case JsApply(JsSelect(_, name, _, _), params,_) if name contains "$default$" => false
+							case JsApply(JsSelect(_, name, _, _), params) if name contains "$default$" => false
 							case JsIdent(name, _) if name.contains("$default$") => false
 							case x => true
 						}
@@ -260,28 +257,28 @@ object JsAstProcessor {
 			
 			// mkString on List
 			// TODO: anything for right now, will narrow down to list later (not sure how yet)
-			case JsApply(JsSelect(q, "mkString", t, _), List(glue),_) => visit {
+			case JsApply(JsSelect(q, "mkString", t, _), List(glue)) => visit {
 				JsApply(JsSelect(q, "join", t), List(glue))
 			}
 			
 			
 			// unary bang
-			case JsApply( JsSelect(qualifier, "unary_$bang", t, _), _,_) => visit {
+			case JsApply( JsSelect(qualifier, "unary_$bang", t, _), _) => visit {
 				JsUnaryOp(qualifier, "!")
 			}
 			
 			// infix ops
-			case JsApply( JsSelect(q, name, t, _), args,_) if infixOperatorMap contains name => visit [JsTree] {
+			case JsApply( JsSelect(q, name, t, _), args) if infixOperatorMap contains name => visit [JsTree] {
 				JsInfixOp(q, args(0), infixOperatorMap.get(name).get)
 			}
 			
 			// plain exception
-			case JsThrow( JsApply( JsNew( JsSelect( JsSelect( JsIdent("scala",_), "package",_, _ ), "Exception", _, _) ), params,_) ) => visit {
+			case JsThrow( JsApply( JsNew( JsSelect( JsSelect( JsIdent("scala",_), "package",_, _ ), "Exception", _, _) ), params) ) => visit {
 				JsThrow( JsApply( JsNew(JsIdent("Error")), params) )
 			}
 			
 			// comparisons
-			case JsApply( JsSelect(qualifier, name, _, _), args,_) if comparisonMap contains name.toString => visit [JsTree] {
+			case JsApply( JsSelect(qualifier, name, _, _), args) if comparisonMap contains name.toString => visit [JsTree] {
 				JsComparison(
 					qualifier,
 					(comparisonMap get name.toString).get,
@@ -303,7 +300,7 @@ object JsAstProcessor {
 			}
 			
 			// toString on XML literal
-			case JsApply ( JsSelect(_, "toString", JsSelectType.Method, _ ), Nil, _ ) => {
+			case JsApply ( JsSelect(_, "toString", JsSelectType.Method, _ ), Nil) => {
 				JsVoid()
 			}
 			
@@ -314,25 +311,31 @@ object JsAstProcessor {
 			}
 			
 			// array access on variables
-			case JsApply (JsSelect(id @ JsIdent(a, JsType.ArrayT), "apply", JsSelectType.Method,_), params, _) => visit {
+			case JsApply (JsSelect(id @ JsIdent(a, JsType.ArrayT), "apply", JsSelectType.Method,_), params) => visit {
 				JsArrayAccess(id, params.head)
 			}
 			// array access on method returns
-			case JsApply( JsSelect( a @ JsApply( JsSelect(_,_,_,JsType.ArrayT),_,_), "apply", JsSelectType.Method, _), params, _) => visit {
+			case JsApply( JsSelect( a @ JsApply( JsSelect(_,_,_,JsType.ArrayT),_), "apply", JsSelectType.Method, _), params) => visit {
 				JsArrayAccess(a, params.head)
 			}
 			// map access on variables 
-			case JsApply (JsSelect(id @ JsIdent(a, JsType.ObjectT), "get", JsSelectType.Method,_), params, _) => visit {
+			case JsApply (JsSelect(id @ JsIdent(a, JsType.ObjectT), "get", JsSelectType.Method,_), params) => visit {
 				JsArrayAccess(id, params.head)
 			}
 			// map access on method returns
-			case JsApply( JsSelect( a @ JsApply( JsSelect(_,_,_,JsType.ObjectT),_,_), "get", JsSelectType.Method, _), params, _) => visit {
+			case JsApply( JsSelect( a @ JsApply( JsSelect(_,_,_,JsType.ObjectT),_), "get", JsSelectType.Method, _), params) => visit {
 				JsArrayAccess(a, params.head)
 			}
 			
 			// collapse applications on local functions
-			case a @ JsApply ( JsSelect(i @ JsIdent(_,JsType.FunctionT), "apply",_,_), params, _ ) => visit[JsApply] {
+			case a @ JsApply ( JsSelect(i @ JsIdent(_,JsType.FunctionT), "apply",_,_), params) => visit[JsApply] {
 				JsApply(i, params)
+			}
+			
+
+			// toInt on augmented strings, turn to parseInt
+			case a @ JsApply(JsSelect(JsApply(JsSelect(JsPredef(), "augmentString", JsSelectType.Method, _), List(subject)), "toInt", JsSelectType.Method, _), params) => visit {
+				JsApply(JsIdent("parseInt"), List(subject))
 			}
 			
 			case x => visit[JsTree]{x}
