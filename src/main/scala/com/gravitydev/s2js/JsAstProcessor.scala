@@ -338,6 +338,25 @@ object JsAstProcessor {
 				JsApply(JsIdent("parseInt"), List(subject))
 			}
 			
+			// JsThis on modules need to be fully qualified
+			case m @ JsModule (owner, name, props, methods, classes, modules) => visit {
+				JsModule(owner, name, props.map(fullyQualifyJsThis(_,m).asInstanceOf[JsProperty]), methods.map(fullyQualifyJsThis(_, m).asInstanceOf[JsMethod]), classes, modules)
+			}
+			
+			case x => visit[JsTree]{x}
+		}
+	}
+	
+	def fullyQualifyJsThis (tree:JsTree, module:JsModule):JsTree = {
+		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, (t:JsTree) => fullyQualifyJsThis(t, module)).asInstanceOf[T]
+		
+		tree match {
+			case JsThis() => JsSelect(module.owner, module.name, JsSelectType.Module)
+			
+			// stop at inner classes and modules
+			case c @ JsClass(_,_,_,_,_,_) => c
+			case o @ JsModule(_,_,_,_,_,_) => o
+			
 			case x => visit[JsTree]{x}
 		}
 	}

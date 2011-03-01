@@ -7,5 +7,9 @@ import goog.net.XhrIo
 import vanity2.util.Implicits._
 	
 object Test {
-	var test = getElement("test")
+	var test = null
+	
+	def run() {
+		test = null
+	}
 }
