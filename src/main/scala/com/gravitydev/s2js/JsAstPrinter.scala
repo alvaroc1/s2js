@@ -15,11 +15,11 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsClass (name, pkg, parents, constructor, properties, methods) => {
+		case JsClass (owner, name, parents, constructor, properties, methods) => {
 			"JsClass (\n" +
 			indent(
+				"owner: " + owner + "\n" +
 				"name: " + name + "\n" +
-				"package: " + pkg + "\n" +
 				"parents: " + parents + "\n" +
 				"constructor: " + print(constructor) + "\n" +
 				"properties: " + printList(properties) + "\n" +
@@ -109,11 +109,12 @@ object JsAstPrinter {
 			) +
 			")"
 		}
-		case JsModule (owner, name, props, methods, classes, modules) => {
+		case JsModule (owner, name, body, props, methods, classes, modules) => {
 			"JsModule(\n" +
 			indent(
 				"owner: " + print(owner) + "\n" +
 				"name: " + name + "\n" +
+				"body: " + printList(body) + "\n" +
 				"props: " + printList(props) + "\n" +
 				"methods: " + printList(methods) + "\n" +
 				"classes: " + printList(classes) + "\n" +

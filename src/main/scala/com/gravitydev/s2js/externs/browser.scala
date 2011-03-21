@@ -3,6 +3,9 @@ package browser
 object `package` {
 	def alert (s:Any) {}
 	def confirm (s:String):Boolean = false
+	def decodeURIComponent (s:String) = ""
+	def encodeURIComponent (s:String) = ""
+	def parseInt (s:String, base:Int):Int = 0
 }
 
 // represents a javascript object literal
@@ -15,8 +18,11 @@ object Object {
 	def apply (map:(String,Any)*) = new Object
 }
 
-class Window {
-	def get(key:String) = ""
+class Date {
+	def getTimezoneOffset():Int = 0
+}
+
+class Window extends Object {
 	object location {
 		var href = ""
 	}
@@ -27,7 +33,9 @@ class Window {
 
 object window extends Window {}
 
-class Node 
+class Node {
+	var parentNode:Node = _
+}
 
 class Element extends Node {
 	val id :String = ""
@@ -36,13 +44,11 @@ class Element extends Node {
 	
 	val style:HTMLElementStyle = null
 	
-	// TODO: move to subclass
-	// forms
-	def submit () {}
-	
 	def setAttribute(name:String, value:String) {}
 	def getAttribute(name:String):String = ""
 }
+
+class Text extends Node
 
 // what is the actual class name for this?
 class HTMLElementStyle {
@@ -56,18 +62,32 @@ class HTMLElementStyle {
 	var bottom:String = _
 	var left:String = _
 	
+	var opacity:Float = _
+	
+	// TODO: what should be done with these?
+	var MozBorderRadius:String = _
+	var WebkitBorderRadius:String = _
 }
 
 class HTMLAnchorElement extends Element
 class HTMLDivElement extends Element
 
+class HTMLFormElement extends Element {
+	def submit () {}
+}
+
+class HTMLIFrameElement extends Element 
+
 trait HTMLControl { // not standard, just for convenience
-	var value = ""
+	def value = ""
+	def value_= (value:Any) {}
+		
 	var disabled = false
 	def focus () {}
 }
 class HTMLInputElement extends Element with HTMLControl {
 	def select () {}
+	var checked = false
 }
 class HTMLTextAreaElement extends Element with HTMLControl
 class HTMLButtonElement extends Element with HTMLControl

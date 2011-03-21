@@ -3,19 +3,49 @@ package goog.dom
 import browser._
 
 object `package` {
-	@deprecated("Use getElement")
-	def $ (id:String):Element = null
-	def getElement (id:String) : Element = null
-	def removeNode (node:Element) {}
 	def getDomHelper (element:Element = null) : DomHelper = null
-	
-	def setTextContent(el:Element, content:String) {}
-	def createDom (tag:String, others:AnyRef*):Element = null
-	def insertSiblingBefore (el1:Element, el2:Element) {}
-	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Node = null
-	def flattenElement (element:Element):Element = null
-	def appendChild (parent:Node, child:Node) {}
+	def getDocument (): Document = null
+	def getElement (id:String) : Element = null
 	def getElementsByTagNameAndClass (opt_tag:String="", opt_class:String="", opt_el:Element=null):List[Element] = null
+	def getElementsByClass (className:String, opt_el:Element = null):{val length:Int} = null
+	def getElementByClass (className:String, opt_el:Element = null): Element = null
+	def setProperties (elements:Element, properties:AnyRef) {}
+	
+	def getViewportSize (opt_window:Window = null):goog.math.Size = null
+	def getDocumentHeight ():Int = 0
+	def getPageScroll (opt_window:Window = null):goog.math.Coordinate = null
+	def getDocumentScroll ():goog.math.Coordinate = null
+	def getDocumentScrollElement (doc:Document):Element = null
+	def getWindow (opt_doc:Document=null):Window = null
+	def createDom (tag:String, others:AnyRef*):Element = null
+	def createElement (name:String):Element = null
+	def createTextNode (content:String):Text = null
+	def createTable (rows:Int, columns:Int, opt_fillWithNbsp:Boolean):Element = null
+	def isCss1CompatMode():Boolean = false
+	def canHaveChildren (node:Node):Boolean = false
+	def appendChild (parent:Node, child:Node) {}
+	def append (parent:Node, var_args:AnyRef*) {}
+	def removeChildren (node:Node) {}
+	def insertSiblingBefore (el1:Element, el2:Element) {}
+	def insertSiblingAfter (el1:Element, el2:Element) {}
+	def removeNode (node:Element) {}
+	def replaceNode (newNode:Node, oldNode:Node) {}
+	def flattenElement (element:Element):Element = null
+	def getChildren (element:Element):List[Node] = null
+	def getFirstElementChild (node:Node):Element = null
+	def getLastElementChild (node:Node):Element = null
+	def getNextElementSibling (node:Node):Element = null
+	def getPreviousElementSibling (node:Node):Element = null
+	def getNextElementNode (node:Node, forwared:Boolean):Element = null
+	def getNextNode (node:Node):Node = null
+	def getPreviousNode (node:Node):Node = null
+	def isNodeLike (obj:AnyRef):Boolean = false
+	
+	def getFrameContentDocument (frame:Element):Document = null
+	def getFrameContentWindow (frame:HTMLIFrameElement):Window = null
+ 	
+	def setTextContent(el:Element, content:String) {}
+	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Node = null
 }
 
 class DomHelper {
@@ -31,6 +61,7 @@ class DomHelper {
 object classes {
 	def add (el:Element, cls:String) {}
 	def remove (el:Element, cls:String) {}
+	def has (element:Element, className:String):Boolean = false
 }
 
 object a11y {

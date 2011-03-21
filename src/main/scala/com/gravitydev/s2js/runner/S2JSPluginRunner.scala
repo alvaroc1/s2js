@@ -17,6 +17,14 @@ object S2JSPluginRunner {
 			//"src/main/scala/com/gravitydev/s2js/sample/Dialog.scala"
 			"src/main/scala/com/gravitydev/s2js/sample/Test.scala"
 		)
+		
+		/*
+		settings.classpath.tryToSet(List("/home/alvaro/scala-workspace/vanity-s2js/bin:bin"))
+		settings.d.tryToSet(List("bin"))
+		val files = List(
+			"/home/alvaro/scala-workspace/vanity-s2js/src/vanity2/util.scala"
+		)
+		*/
 
 		val command = new CompilerCommand(files, settings) {
 				

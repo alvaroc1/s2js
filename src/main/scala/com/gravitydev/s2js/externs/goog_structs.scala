@@ -1,11 +1,13 @@
 package goog.structs 
 
+import browser._
+
 object `package` {
 	def forEach (m:Map, fn:(String, String) => Unit) {}
 	
-	def map [T <: Any, R <:Any] (m:scala.collection.immutable.Map[String,T], fn:(T, String)=>R) : scala.collection.immutable.Map[String, R] = null
+	def map [T <: Any, R <:Any] (m:Object, fn:(T, String)=>R) : Object = null
 	
-	def getValues [T <:Any](m:scala.collection.immutable.Map[String, T]) : List[T] = null
+	def getValues [T <:Any](m:Object) : List[T] = null
 }
 
 class Map {

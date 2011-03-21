@@ -48,8 +48,10 @@ object JsAstProcessor {
 			case JsSelect(JsSelect(q, name, t, tpe), "package", JsSelectType.Module, _) => visit [JsTree] {
 				JsSelect(q, name, t, tpe)
 			}
-			case JsModule(JsSelect(q, name, JsSelectType.Module, _), "package", props, methods, classes, modules) => visit {
-				JsModule(q, name, props, methods, classes, modules)
+			// ref stuff
+			//case JsModule(JsSelect(q, name, JsSelectType.Module, _), "package", props, methods, classes, modules) => visit {
+			case JsModule(mr @ JsModuleRef(name), "package", body, props, methods, classes, modules) => visit {
+				JsModule(mr, name, body, props, methods, classes, modules)
 			}
 			
 			// remove extra select on instantiations
@@ -171,7 +173,6 @@ object JsAstProcessor {
 				JsAssign (lhs, jsIfToTernary(i))
 			}
 			case a @ JsApply (fun, params) => visit {
-				println("test")
 				JsApply(fun, params.map(_ match {
 					case i:JsIf => jsIfToTernary(i)
 					case x => x
@@ -198,10 +199,11 @@ object JsAstProcessor {
 					methods.filter(!_.name.contains("$default$"))
 				)
 			}
-			case JsModule (owner, name, properties, methods, classes, modules) => visit [JsTree] {
+			case JsModule (owner, name, body, properties, methods, classes, modules) => visit [JsTree] {
 				JsModule (
 					owner, 
 					name, 
+					body,
 					properties, 
 					methods.filter(!_.name.contains("$default$")), 
 					classes, 
@@ -215,12 +217,24 @@ object JsAstProcessor {
 				)
 			}
 			
-			// turn method String.length() into property
-			case JsApply(JsSelect(l @ JsLiteral(value, JsType.StringT), "length", JsSelectType.Method, _), params) => {
-				JsSelect(l, "length", JsSelectType.Prop, JsType.IntT)
+			/*
+			case a @ JsApply(JsSelect(a2 @ JsApply(_,_),_,_,JsType.NumberT),_) if true => {
+				println(a2)
+				a
 			}
-			case a @ JsApply(JsSelect(JsApply(s @ JsSelect(_,_,_, JsType.StringT),_),"length",JsSelectType.Method, JsType.IntT), params) if true => visit [JsApply] {
-				JsSelect(s, "length", JsSelectType.Prop, JsType.IntT)
+			*/
+			
+			case JsType("Unit", List()) => JsType.VoidT
+			
+			// turn method String.length() into property
+			case JsApply(JsSelect(l @ JsLiteral(value, JsType.StringT), "length", JsSelectType.Method, _), _) => visit {
+				JsSelect(l, "length", JsSelectType.Prop, JsType.NumberT)
+			}
+			case JsApply(JsSelect(JsApply(s @ JsSelect(_,_,_, JsType.StringT),_),"length",JsSelectType.Method, JsType.NumberT), _) => visit [JsApply] {
+				JsSelect(s, "length", JsSelectType.Prop, JsType.NumberT)
+			}
+			case JsApply(JsSelect(i @ JsIdent(_, JsType.StringT), "length", JsSelectType.Method, _), _) => visit {
+				JsSelect(i, "length", JsSelectType.Prop, JsType.NumberT)
 			}
 			
 			// remove default invocations
@@ -272,9 +286,8 @@ object JsAstProcessor {
 				JsInfixOp(q, args(0), infixOperatorMap.get(name).get)
 			}
 			
-			// plain exception
-			case JsThrow( JsApply( JsNew( JsSelect( JsSelect( JsIdent("scala",_), "package",_, _ ), "Exception", _, _) ), params) ) => visit {
-				JsThrow( JsApply( JsNew(JsIdent("Error")), params) )
+			case JsThrow ( JsApply( JsNew( JsClassRef("java.lang.Exception") ), params ) ) => visit {
+				JsThrow( JsApply( JsNew( JsClassRef("Error") ), params ) )
 			}
 			
 			// comparisons
@@ -286,6 +299,7 @@ object JsAstProcessor {
 				)
 			}
 			
+			// TODO: move to JsPrinter
 			// remove browser package prefix
 			case JsSelect( JsIdent("browser",_), name, t, _) => visit {
 				JsIdent(name)
@@ -294,20 +308,32 @@ object JsAstProcessor {
 				JsType (name.stripPrefix("browser."), t)
 			}
 			
+			// i don't think I need this anymore
 			// scala.Unit
 			case JsSelect ( JsIdent("scala",_), "Unit", t, _) => visit {
-				JsVoid()
+				JsType.VoidT
 			}
 			
+			/* NOT SURE WHY THIS IS HERE
+			 * it is breaking parseInt("2").toString
 			// toString on XML literal
 			case JsApply ( JsSelect(_, "toString", JsSelectType.Method, _ ), Nil) => {
-				JsVoid()
+				JsType.VoidT
 			}
+			*/
 			
 			// method applications with no parameter list
 			// turn them into method applications with empty parameter list
 			case JsSelect( s @ JsSelect(_,_,JsSelectType.Method,_), name, t, ret) => visit [JsSelect] {
 				JsSelect( JsApply(s, Nil), name, t, ret )
+			}
+			
+			// application of foreach on an identifier of type List
+			case a @ JsApply (JsSelect(i @ JsIdent(_, JsType.ArrayT), "foreach", JsSelectType.Method, _), params) => visit {
+				JsApply(
+					JsSelect(JsSelect(JsIdent("goog"), "array", JsSelectType.Module), "forEach", JsSelectType.Method),
+					i :: params
+				)
 			}
 			
 			// array access on variables
@@ -318,6 +344,7 @@ object JsAstProcessor {
 			case JsApply( JsSelect( a @ JsApply( JsSelect(_,_,_,JsType.ArrayT),_), "apply", JsSelectType.Method, _), params) => visit {
 				JsArrayAccess(a, params.head)
 			}
+			
 			// map access on variables 
 			case JsApply (JsSelect(id @ JsIdent(a, JsType.ObjectT), "get", JsSelectType.Method,_), params) => visit {
 				JsArrayAccess(id, params.head)
@@ -327,20 +354,24 @@ object JsAstProcessor {
 				JsArrayAccess(a, params.head)
 			}
 			
+			// unwrap methods on objects wrapped in "refArrayOps"
+			case JsApply (JsSelect(JsApply(JsSelect(JsPredef(), "refArrayOps",_,_), List(subject)), name,_, tpe), params) if true => {
+				JsApply(JsSelect(subject, name, JsSelectType.Method, tpe), params)
+			}
+			
 			// collapse applications on local functions
 			case a @ JsApply ( JsSelect(i @ JsIdent(_,JsType.FunctionT), "apply",_,_), params) => visit[JsApply] {
 				JsApply(i, params)
 			}
-			
 
 			// toInt on augmented strings, turn to parseInt
 			case a @ JsApply(JsSelect(JsApply(JsSelect(JsPredef(), "augmentString", JsSelectType.Method, _), List(subject)), "toInt", JsSelectType.Method, _), params) => visit {
-				JsApply(JsIdent("parseInt"), List(subject))
+				JsApply(JsIdent("parseInt"), List(subject, JsLiteral("10", JsType.NumberT)))
 			}
 			
 			// JsThis on modules need to be fully qualified
-			case m @ JsModule (owner, name, props, methods, classes, modules) => visit {
-				JsModule(owner, name, props.map(fullyQualifyJsThis(_,m).asInstanceOf[JsProperty]), methods.map(fullyQualifyJsThis(_, m).asInstanceOf[JsMethod]), classes, modules)
+			case m @ JsModule (owner, name, body, props, methods, classes, modules) => visit {
+				JsModule(owner, name, body, props.map(fullyQualifyJsThis(_,m).asInstanceOf[JsProperty]), methods.map(fullyQualifyJsThis(_, m).asInstanceOf[JsMethod]), classes, modules)
 			}
 			
 			case x => visit[JsTree]{x}
@@ -355,7 +386,7 @@ object JsAstProcessor {
 			
 			// stop at inner classes and modules
 			case c @ JsClass(_,_,_,_,_,_) => c
-			case o @ JsModule(_,_,_,_,_,_) => o
+			case o @ JsModule(_,_,_,_,_,_,_) => o
 			
 			case x => visit[JsTree]{x}
 		}

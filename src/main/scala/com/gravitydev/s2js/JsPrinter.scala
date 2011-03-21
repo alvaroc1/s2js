@@ -22,12 +22,11 @@ object JsPrinter {
 				// only one object as top level with a main method
 				val content = classes match {
 					// script, print only the body of the main method
-					case JsModule(_, _, _, JsMethod(_, "main", args, body, _) :: Nil, _, _) :: Nil => {
+					case JsModule(_, _, _, _, JsMethod(_, "main", args, body, _) :: Nil, _, _) :: Nil if false => {
 						// values from window
 						val values = args.map((a:JsParam)=>"window[\""+a.name+"\"]").mkString(", ")
 						
 						// grab the first provides and export it
-						
 						"goog.exportSymbol('" + p.head + "', function ("+printParamList(args)+") {\n" +
 						indent(
 							print(body)
@@ -54,25 +53,42 @@ object JsPrinter {
 				const + props + methds
 			}
 			
-			case JsModule (owner, name, props, methods, classes, modules) => {
+			case o @ JsModule (owner, name, body, props, methods, classes, modules) => {				
+				val b = print(owner)+"."+name+" = function () { \n" +
+						indent(
+							(body map print).mkString("\n")
+						) +"\n" +
+					"}; \n"
+				
 				val p = props.map(printModuleProp(_)+"\n").mkString("")
 				
 				val methds = methods.map(print).mkString("")
 				
+				// export main method if there is one
+				val mainMethod = methods.find({
+					case JsMethod(_, "main", args, body, _) => true
+					case _ => false
+				})
+				val exported = mainMethod.map((x) => {
+					val fullName = print(owner)+"."+name+".main"
+					"goog.exportSymbol(\""+fullName+"\", "+fullName+"); \n"
+				}).getOrElse("")
+				
 				val c = classes.map(print).mkString("")
 				val m = modules.map(print).mkString("")
 				
-				p + methds + c + m
+				b + p + methds + c + m + exported
 			}
 			
 			case m @ JsMethod (owner, name, params, body, ret) => {
 				// jsdoc
 				val l = new ListBuffer[String]()
 				params foreach ((p) => l += getParamDoc(p))
-				if (ret != JsVoid()) l += "@return {"+print(ret)+"}"
+				if (ret != JsType.VoidT) l += "@return {"+print(ret)+"}"
 				val jsdoc = doc(l.toList)
 				
-				val start = print(owner) + "." + (if (owner.isInstanceOf[JsSelect] && owner.asInstanceOf[JsSelect].selectType == JsSelectType.Class) "prototype." else "") + name + " = function (" + printParamList(params) + ") {\n"
+				val start = owner.name + "." + (if (owner.isInstanceOf[JsClassRef]) "prototype." else "") + name + " = function (" + printParamList(params) + ") {\n"
+				
 				val middle = indent(
 					print(body)
 				)
@@ -105,17 +121,6 @@ object JsPrinter {
 				print(fun) + "(" + params.map(print).mkString(", ") + ")"
 			}
 			
-			/* SELECTS */
-			// predef
-			/*
-			case JsSelect(JsSelect(JsThis(),"Predef",_),name,_) => {
-				name match {
-					case "String" => "string"
-					case x => x
-				}
-			}
-			*/
-			
 			// other
 			case JsSelect (qualifier, name, t, tpe) => {
 				val s = qualifier match {
@@ -124,6 +129,10 @@ object JsPrinter {
 					}
 					case JsIdent(n,_) => n+"."+name
 					case JsThis() => "this."+name
+					
+					//case JsModuleRef (name) => name
+					case JsModuleRef (n) => n+"."+name
+					
 					case x => {
 						//println(x)
 						
@@ -161,7 +170,7 @@ object JsPrinter {
 				val e = indent(printWithSemiColon(elsep))
 				val last = "}\n"
 				
-				condition + body + (if (elsep.isInstanceOf[JsVoid]) "" else elseline + e) + last
+				condition + body + (if (elsep == JsType.VoidT) "" else elseline + e) + last
 			}
 			
 			case JsTernary (cond, thenp, elsep) => {
@@ -174,7 +183,7 @@ object JsPrinter {
 			
 			case JsThis () => "this"
 			
-			case JsVoid () => "" //"{void}"
+			case JsType.VoidT => "" //"{void}"
 			
 			case JsVar (id,tpe,rhs) => {				
 				"var "+id+" = " + print(rhs)+";\n"
@@ -208,7 +217,9 @@ object JsPrinter {
 			case JsType.ArrayT => "Array"
 			case JsType.UnknownT  => "UNKNOWN"
 			
-			case JsType (name, typeParams) => name
+			case JsType (name, typeParams) => {
+				name
+			}
 			
 			
 			case JsTypeApply (fun, args) => {
@@ -247,6 +258,10 @@ object JsPrinter {
 			case JsArrayAccess (subject, index) => {
 				print(subject) + "[" + print(index) + "]"
 			}
+			
+			case JsClassRef (name) => name.stripPrefix("browser.")
+			case JsPackageRef (name) => name
+			case JsModuleRef (name) => name
 		}
 	}
 	
@@ -292,7 +307,7 @@ object JsPrinter {
 		// jsdoc
 		val l = new ListBuffer[String]()
 		m.params foreach ((p) => l += getParamDoc(p))
-		if (m.ret != JsVoid()) l += "@return {"+print(m.ret)+"}"
+		if (m.ret != JsType.VoidT) l += "@return {"+print(m.ret)+"}"
 		val jsdoc = doc(l.toList)
 		
 		val start = "var " + m.name + " = function (" + printParamList(m.params) + ") {\n"
@@ -370,7 +385,7 @@ object JsPrinter {
 				case a => a
 			}
 			*/
-			JsVoid()
+			JsType.VoidT
 		}
 	}
 	
@@ -450,13 +465,13 @@ object JsPrinter {
 		def find (tree:JsTree) : JsTree = {
 			tree match {
 				case JsClass(owner, name, _,_,_,_) => {
-					l.append(print(owner)+"."+name)
+					l.append(owner.name+"."+name)
 					
 					JsAstUtil visitAst ( tree, find )
 				}
 				
-				case JsModule(owner, name, _,_,_,_) => {
-					l.append(print(owner)+"."+name)
+				case JsModule(owner, name, _, _,_,_,_) => {
+					l.append(owner.name+"."+name)
 					
 					JsAstUtil visitAst ( tree, find )
 				}
@@ -499,7 +514,6 @@ object JsPrinter {
 				case JsProperty(owner, name, tpt @ JsSelect(_,_,_,_), JsSelect(_,_,_,_), mods) => {
 					l.append(print(tpt))
 				}
-				
 				// TODO: these should be collapsed into one case with guards
 				// select class
 				case s @ JsSelect(_,_,JsSelectType.Class,_) => {
@@ -507,6 +521,7 @@ object JsPrinter {
 				}
 				// select module
 				case JsSelect(s @ JsSelect(_,_,JsSelectType.Module,_), _, JsSelectType.Method, _ ) => {
+					val st = print(s)
 					l.append(print(s))
 				}
 				// select package
@@ -521,7 +536,9 @@ object JsPrinter {
 				// TODO: had to move this one down to not conflict with the package one. Gotta figure out what the deal is
 				// ignore applications on local variables
 				case JsSelect(JsIdent(_,_),_,_,_) => ()
-
+				
+				case JsClassRef(name) => l.append(name)
+				
 				case _ => ()
 			}
 			visit(tree)
@@ -529,8 +546,8 @@ object JsPrinter {
 		
 		find(tree)
 		
-		// remove anything that ends in underscore
-		l.filterNot(_.endsWith("_")).toList
+		// remove anything that ends in underscore or starts with browser
+		l.filterNot(_.endsWith("_")).filterNot(_.startsWith("browser.")).toList
 	}
 	
 }

@@ -1,15 +1,9 @@
-package vanity2.util
+package testing
 
 import browser._
-import goog.dom._
-import goog.events.Event
-import goog.net.XhrIo
-import vanity2.util.Implicits._
-	
+
 object Test {
-	var test = null
-	
-	def run() {
-		test = null
+	def run {
+		"test-2".split("-").reverse
 	}
 }

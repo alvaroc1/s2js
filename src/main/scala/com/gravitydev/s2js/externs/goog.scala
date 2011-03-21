@@ -15,3 +15,13 @@ object css {
 object string {
 	def createUniqueString ():String = ""
 }
+
+class History (opt_invisible:Boolean = false, opt_blankPageUrl:String = "", opt_input:HTMLInputElement = null, opt_iframe:HTMLIFrameElement = null ) extends goog.events.EventTarget {
+	def setEnabled (enabled:Boolean) {}
+}
+
+object History {
+	object EventType {
+		val NAVIGATE = ""
+	}
+}

@@ -98,6 +98,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				println("isModule: " + s.isModule)
 				println("isError: " + s.isError)
 				println("isType: " + s.isType)
+				println("isModuleClass: " + s.isModuleClass)
 				println("-----------------------------")
 				println("")
 			}
@@ -108,7 +109,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			val body = for (child <- c.impl.body if child != EmptyTree && !child.isInstanceOf[DefDef] && !child.symbol.isParamAccessor) yield getJsTree(child)
 			
 			JsConstructor(
-				getType(const.symbol.owner),
+				getJsRef(const.symbol.owner.tpe),
 				for (v @ ValDef(mods, name, tpt, rhs) <- const.vparamss.flatten) yield getParam(v),
 				for (child <- const.rhs.children) yield getJsTree (child),
 				
@@ -127,7 +128,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		/** 
 		 * Get a symbol's type as a JsTree (JsSelect or JsBuiltInType) 
 		 */
-		@deprecated("Try to use getJsType") 
+		@deprecated("Try to use getJsType or getJsRef") 
 		def getType (typeTree:Symbol):JsTree = {
 			typeTree match {
 				case StringClass => JsType.StringT
@@ -157,14 +158,15 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 		}
 		
-		def getJsType (tpe:Type):JsType = {
-			
+		def getJsType (tpe:Type):JsType = {			
 			tpe.typeSymbol match {
 				case IntClass|DoubleClass => JsType.NumberT
 				case StringClass => JsType.StringT
 				case AnyClass => JsType.AnyT
 				case BooleanClass => JsType.BooleanT
 				case x if FunctionClass.contains(x) => JsType.FunctionT
+				case x if x.isModuleClass => JsType(x.asInstanceOf[ModuleClassSymbol].fullName)
+				
 				case _ => tpe.typeConstructor.toString match {
 					case func if func.startsWith("Function") => JsType.FunctionT
 					case "List"|"Array" => JsType.ArrayT
@@ -173,6 +175,25 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					// lame, maybe we don't need this
 					case _ => JsType(tpe.toString)
 				}
+			}
+		}
+		
+		def getJsRef (tpe:Type):JsRef = {			
+			tpe.typeSymbol match {
+				case x if x.isModuleClass => JsModuleRef(x.asInstanceOf[ModuleClassSymbol].fullName)
+				case x if x.isClass => JsClassRef(x.asInstanceOf[ClassSymbol].fullName)
+				case x if x.isPackage => JsPackageRef(x.fullName)
+			}
+		}
+		
+		def getJsRef (sym:Symbol):JsRef = {
+			
+			sym match {
+				case x if x.isModuleClass => JsModuleRef(x.asInstanceOf[ModuleClassSymbol].fullName)
+				case x if x.isClass => JsClassRef(x.asInstanceOf[ClassSymbol].fullName)
+				case x if x.isPackage => JsPackageRef(x.nameString)
+				case x if x.isMethod => JsMethodRef(x.fullName)
+				case x => JsUnknownRef(x.fullName)
 			}
 		}
 		
@@ -246,7 +267,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
 
 				JsClass(
-					getType(c.symbol.owner),
+					getJsRef(c.symbol.owner.tpe),
 					c.symbol.name.toString,
 					for (s @ Select(qualifier, name) <- parents) yield JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Class, JsType.UnknownT ),
 					getConstructor(c, primary),
@@ -255,15 +276,31 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				)
 			}
 			
-			case m @ ModuleDef (mods, name, Template(parents, self, body)) => {				
-				val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
-				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
-				val classes = body.collect({ case x:ClassDef => x })
-				val modules = body.collect({ case x:ModuleDef => x })
+			case m @ ModuleDef (mods, name, Template(parents, self, body)) => {
+				val bodyContents = body.groupBy(_ match {
+					case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => "properties"
+					case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => "methods"
+					case x:ClassDef => "classes"
+					case x:ModuleDef => "modules"
+					case _ => "expressions"
+				})
+				
+				val properties = bodyContents.get("properties").getOrElse(Nil).map(_.asInstanceOf[ValDef])
+				val methods = bodyContents.get("methods").getOrElse(Nil).map(_.asInstanceOf[DefDef])
+				val classes = bodyContents.get("classes").getOrElse(Nil).map(_.asInstanceOf[ClassDef])
+				val modules = bodyContents.get("modules").getOrElse(Nil).map(_.asInstanceOf[ModuleDef])
+				
+				// get the expressions in the body of the <init> method, remove the constructor
+				val expressions = bodyContents.get("expressions").get.filter({
+					case x:DefDef if x.name.toString == "<init>" => false
+					case x if x.symbol.isGetterOrSetter => false
+					case _ => true
+				})
 				
 				JsModule(
-					getType(m.symbol.owner),
+					getJsRef(m.symbol.owner.tpe),
 					m.symbol.name.toString,
+					expressions map getJsTree,
 					properties map getProperty, 
 					methods map (getJsTree(_).asInstanceOf[JsMethod]),
 					classes map (getJsTree(_).asInstanceOf[JsClass]),
@@ -271,11 +308,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				)
 			}
 			
-			case m @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
-				val tpe = getType(tpt.symbol)
-				
+			case m @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {			
 				JsMethod(
-					getType(m.symbol.owner),
+					getJsRef(m.symbol.owner),
 					name.toString,
 					for (v @ ValDef(mods, name, tpt, rhs) <- vparamss.flatten) yield getParam(v),
 					// add return if not void
@@ -283,7 +318,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 						case "Unit" => getJsTree(rhs)
 						case x => addReturn(getJsTree(rhs))
 					},
-					tpe
+					getJsType(tpt.tpe)
 				)
 			}
 
@@ -307,30 +342,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			case Assign (lhs, rhs) => {
 				JsAssign(getJsTree(lhs), getJsTree(rhs))
 			}
-			
-			/* don't think we need this anymore
-			// package methods
-			case Select(Select(Ident(_), name), _) if name.toString == "package" => {
-				println("test")
-				JsVoid()
-			}
-			*/
-			
-			/* do i need this one? probably not, we can collapse this in the transformations
-			// new (instantiation)
-			case Select( New( Select( q, name ) ), _ ) => {
-				JsNew( JsSelect( getJsTree(q), name.toString ) )
-			}
-			*/
-			//case New ( Select (q, name) ) => {
+
 			case New ( select ) => {
-				// local references to classes are not fully qualified
-				// so when we have an Ident, we have to get the full type
-				val t = select match {
-					case i @ Ident(id) => getType(i.symbol)
-					case _ => getJsTree(select)
-				}
-				JsNew( t )
+				JsNew( getJsRef(select.tpe) )
 			}
 			
 
@@ -376,7 +390,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					// it is a no-parameter-list application
 					// wrap with apply
 					case s if !s.symbol.isGetterOrSetter && s.symbol.isMethod => {
-						JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method, JsType.UnknownT), Nil)
+						val t = getJsType(s.tpe)
+						JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method, getJsType(s.tpe)), Nil)
 					}
 					case s => {
 						JsSelect(
@@ -420,7 +435,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 			
 			// Unit 
-			case Literal(Constant(())) => JsVoid()
+			case Literal(Constant(())) => JsType.VoidT
 			
 			case This(qual) => {
 				JsThis()
@@ -490,7 +505,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsFunction (
 					for (v @ ValDef(mods, name, tpt, rhs) <- vparams) yield getParam(v),
 					tpe match {
-						case JsVoid() => getJsTree(body) 
+						case JsType.VoidT => getJsTree(body) 
 						case _ => addReturn(getJsTree(body))
 					}
 				) 
@@ -579,7 +594,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		def addReturn (tree:JsTree):JsTree = tree match {
 			case JsIf(cond, thenExpr, elseExpr) => JsIf(cond, addReturn(thenExpr), addReturn(elseExpr))
 			case JsBlock(stats, expr) => JsBlock(stats, addReturn(expr))
-			case JsVoid() => JsVoid()
+			case JsType.VoidT => JsType.VoidT
 			case x => JsReturn(tree)
 		}
 		

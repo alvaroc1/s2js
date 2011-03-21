@@ -24,16 +24,17 @@ object JsAstUtil {
 					methods map (fn(_).asInstanceOf[JsMethod])
 				)
 			}
-			case JsModule (owner,name,props,methods,classes,modules) => JsModule(
-				fn(owner),
+			case JsModule (owner,name,body,props,methods,classes,modules) => JsModule(
+				fn(owner).asInstanceOf[JsRef],
 				name,
+				body map fn,
 				props map (fn(_).asInstanceOf[JsProperty]),
 				methods map (fn(_).asInstanceOf[JsMethod]),
 				classes map (fn(_).asInstanceOf[JsClass]),
 				modules map (fn(_).asInstanceOf[JsModule])
 			)
 			case JsConstructor(owner, params,constructorBody,classBody) => JsConstructor(
-				fn(owner),
+				fn(owner).asInstanceOf[JsRef],
 				params map (fn(_).asInstanceOf[JsParam]),
 				constructorBody map fn,
 				classBody map fn
@@ -50,7 +51,7 @@ object JsAstUtil {
 			case JsSelect (qualifier, name, t, tpe) => JsSelect( fn(qualifier), name, t, tpe )
 			
 			case JsMethod(owner, name,params,body,ret) => JsMethod(
-				fn(owner),
+				fn(owner).asInstanceOf[JsRef],
 				name,
 				params map (fn(_).asInstanceOf[JsParam]),
 				fn(body),
@@ -95,8 +96,12 @@ object JsAstUtil {
 			
 			case JsArrayAccess (array, index) => JsArrayAccess(fn(array), fn(index))
 			
+			case x:JsModuleRef => x
+			case x:JsClassRef => x
+			
+			case x:JsType => x
+			
 			case x:JsSuper => x
-			case x:JsVoid => x
 			case x:JsIdent => x
 			case x:JsLiteral => x
 			case x:JsThis => x

@@ -3,6 +3,10 @@ package goog.ui
 import browser._
 import goog.dom.DomHelper
 
+class AdvancedTooltip (opt_el:Element=null, opt_str:String="", opt_domHelper:DomHelper=null) extends Tooltip {
+	def setCursorTracking (b:Boolean) {}
+}
+
 class Button (content:AnyRef /* ControlContent*/, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Control (content) {
 	// this doesn't exist but it is used on goog.editor
 	var queryable = false
@@ -148,6 +152,21 @@ object FlatMenuButtonRenderer {
 	def getInstance ():FlatMenuButtonRenderer = null
 }
 
+class HoverCard (isAnchor:AnyRef, opt_checkDescendants:Boolean=false, opt_domHelper:goog.dom.DomHelper = null) extends AdvancedTooltip {
+	def getAnchorElement () :Element = null
+}
+
+object HoverCard {
+	object EventType {
+		val TRIGGER = ""
+		val CANCEL_TRIGGER = ""
+		val BEFORE_SHOW = ""
+		val SHOW = ""
+		val BEFORE_HIDE = ""
+		val HIDE = ""
+	}
+}
+
 class HsvPalette extends Component
 
 class HsvaPalette (opt_domHelper:goog.dom.DomHelper=null, opt_color:String="", opt_alpha:Int=0, opt_class:String="") extends HsvPalette
@@ -205,6 +224,33 @@ object MenuSeparatorRenderer {
 	def getInstance():MenuSeparatorRenderer = null
 }
 
+class Popup (opt_element:Element=null, opt_position:goog.positioning.AbstractPosition=null) extends PopupBase {
+	def getPosition ():goog.positioning.AbstractPosition = null
+	def setPosition (position:goog.positioning.AbstractPosition) {}
+	def setPinnedCorner (corner:goog.positioning.Corner) {}
+}
+
+class PopupBase (opt_element:Element=null, opt_type:PopupBase.Type=null) extends goog.events.EventTarget {
+	def getType ():PopupBase.Type = null
+	def setType (tpe:PopupBase.Type) {}
+	def isVisible ():Boolean = false
+	def setVisible (visible:Boolean) {}
+}
+object PopupBase {
+	trait Type
+	object TOGGLE_DISPLAY extends Type
+	object MOVE_OFFSCREEN extends Type
+	
+	object EventType {
+		val BEFORE_SHOW = ""
+		val SHOW = ""
+		val BEFORE_HIDE = ""
+		val HIDE = ""
+	}
+	
+	var DEBOUNCE_DELAY_MS = 150
+}
+
 class PopupMenu (opt_domHelper:goog.dom.DomHelper = null, opt_renderer:MenuRenderer = null) extends Menu {
 	def attach (element:Element, opt_targetCorner:goog.positioning.Corner=null, opt_menuCorner:goog.positioning.Corner=null, opt_contextMenu:Boolean=false, opt_margin:goog.math.Box=null) {}
 }
@@ -232,3 +278,8 @@ class Toolbar (renderer:ToolbarRenderer, orientation:Any = null, domHelper:DomHe
 
 class ToolbarRenderer
 
+class Tooltip (opt_el:Element=null, opt_str:String="", opt_domHelper:DomHelper=null) extends Popup {
+	var className = ""
+	
+	def setElement (el:Element) {}
+}
