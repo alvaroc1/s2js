@@ -15,7 +15,7 @@ object `package` {
 	def getDocumentHeight ():Int = 0
 	def getPageScroll (opt_window:Window = null):goog.math.Coordinate = null
 	def getDocumentScroll ():goog.math.Coordinate = null
-	def getDocumentScrollElement (doc:Document):Element = null
+	def getDocumentScrollElement ():Element = null
 	def getWindow (opt_doc:Document=null):Window = null
 	def createDom (tag:String, others:AnyRef*):Element = null
 	def createElement (name:String):Element = null

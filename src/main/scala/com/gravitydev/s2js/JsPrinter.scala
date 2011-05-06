@@ -521,7 +521,6 @@ object JsPrinter {
 				}
 				// select module
 				case JsSelect(s @ JsSelect(_,_,JsSelectType.Module,_), _, JsSelectType.Method, _ ) => {
-					val st = print(s)
 					l.append(print(s))
 				}
 				// select package

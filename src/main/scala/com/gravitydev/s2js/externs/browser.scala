@@ -44,6 +44,10 @@ class Element extends Node {
 	
 	val style:HTMLElementStyle = null
 	
+	var scrollTop = 0
+	
+	var offsetHeight = 0
+	
 	def setAttribute(name:String, value:String) {}
 	def getAttribute(name:String):String = ""
 }
@@ -64,6 +68,9 @@ class HTMLElementStyle {
 	
 	var opacity:Float = _
 	
+	var backgroundColor = ""
+	var outline = ""
+	
 	// TODO: what should be done with these?
 	var MozBorderRadius:String = _
 	var WebkitBorderRadius:String = _
@@ -79,8 +86,9 @@ class HTMLFormElement extends Element {
 class HTMLIFrameElement extends Element 
 
 trait HTMLControl { // not standard, just for convenience
-	def value = ""
-	def value_= (value:Any) {}
+	var value = ""
+	//def value = ""
+	//def value_= (value:Any) {} // i don't remember why i needed this
 		
 	var disabled = false
 	def focus () {}

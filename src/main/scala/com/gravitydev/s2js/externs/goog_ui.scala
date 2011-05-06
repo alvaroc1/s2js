@@ -111,6 +111,7 @@ class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomH
 	def setButtonSet (buttonSet:Dialog.ButtonSet) {}
 	def setDisposeOnHide(b:Boolean) {}
 	def getDialogElement ():Element = null
+	def getButtonSet () :Dialog.ButtonSet = null
 }
 
 object Dialog {
@@ -134,6 +135,8 @@ object Dialog {
 		def attachToElement (el:Element) {}
 		def render () {}
 		def decorate (el:Element) {}
+		def setAllButtonsEnabled(enabled:Boolean) {}
+		def getButton (key:String):Element = null
 	}
 }
 
@@ -202,7 +205,9 @@ object MenuHeaderRenderer {
 	def getInstance ():MenuHeaderRenderer = null
 }
 
-class MenuItem (content:String /* ControlContent */, opt_model:AnyRef=null, opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuItemRenderer=null) extends Control(content)
+class MenuItem (content:AnyRef /* ControlContent */, opt_model:AnyRef=null, opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuItemRenderer=null) extends Control(content) {
+	def getModel ():AnyRef = null
+}
 
 class MenuItemRenderer extends ControlRenderer
 
@@ -253,6 +258,7 @@ object PopupBase {
 
 class PopupMenu (opt_domHelper:goog.dom.DomHelper = null, opt_renderer:MenuRenderer = null) extends Menu {
 	def attach (element:Element, opt_targetCorner:goog.positioning.Corner=null, opt_menuCorner:goog.positioning.Corner=null, opt_contextMenu:Boolean=false, opt_margin:goog.math.Box=null) {}
+	def setToggleMode (toggle:Boolean) {}
 }
 
 class Select (caption:String /* ControlContent */, opt_menu:Menu=null, opt_renderer:ButtonRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends MenuButton (caption)

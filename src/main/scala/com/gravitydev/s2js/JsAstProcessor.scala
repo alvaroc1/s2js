@@ -4,7 +4,7 @@ import S2JSComponent._
 
 object JsAstProcessor {
 	def process (tree:JsTree):JsTree = 
-		transformTernaries (
+ 		transformTernaries (
 		transform (
 			clean (
 				removeTypeApplications(
@@ -235,6 +235,11 @@ object JsAstProcessor {
 			}
 			case JsApply(JsSelect(i @ JsIdent(_, JsType.StringT), "length", JsSelectType.Method, _), _) => visit {
 				JsSelect(i, "length", JsSelectType.Prop, JsType.NumberT)
+			}
+			
+			// turn List.length() into property
+			case JsApply(JsSelect(qualifier @ JsApply(JsSelect(_,_,_,JsType.ArrayT),_), "length", JsSelectType.Method,_), Nil) => visit [JsSelect] {
+				JsSelect(qualifier, "length", JsSelectType.Prop, JsType.NumberT)
 			}
 			
 			// remove default invocations
