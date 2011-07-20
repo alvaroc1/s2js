@@ -13,11 +13,22 @@ object S2JSPluginRunner {
 		settings.classpath.tryToSet(List("bin"))
 		settings.d.tryToSet(List("bin"))
 		
+		
 		val files = List(
 			//"src/main/scala/com/gravitydev/s2js/sample/Dialog.scala"
-			"src/main/scala/com/gravitydev/s2js/sample/Test.scala"
+			//"src/main/scala/com/gravitydev/s2js/sample/Test.scala"
+			"src/main/scala/com/gravitydev/s2js/sample/Test2.scala"
+			//"src/main/scala/com/gravitydev/s2js/sample/XmlTest.scala"
 		)
+		/*
+		def recursiveListFiles(f: File): Array[File] = {
+		  val these = f.listFiles
+		  these ++ these.filter(_.isDirectory).flatMap(recursiveListFiles)
+		}
 		
+		val files = (for (file <- recursiveListFiles(new File("/home/alvaro/workspace/vanity-s2js/src")) if file.getName.endsWith(".scala")) yield file.getAbsolutePath).toList
+		*/
+	
 		/*
 		settings.classpath.tryToSet(List("/home/alvaro/scala-workspace/vanity-s2js/bin:bin"))
 		settings.d.tryToSet(List("bin"))

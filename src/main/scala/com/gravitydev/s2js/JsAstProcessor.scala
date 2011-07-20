@@ -3,21 +3,19 @@ package com.gravitydev.s2js
 import S2JSComponent._
 
 object JsAstProcessor {
-	def process (tree:JsTree):JsTree = 
- 		transformTernaries (
-		transform (
-			clean (
-				removeTypeApplications(
-					transformMapsAndLists(
-						prepare(tree)
-					)
-				)
-			)
-		)
-		)
+	def process (tree:JsTree):JsTree = {
+		List(
+			prepare _,
+			transformMapsAndLists _,
+			removeTypeApplications _,
+			clean _,
+			transform _,
+			transformTernaries _
+		).reduceLeft((a,b) => b compose a)(tree)
+	}
 		
 	// this must be performed before anything else
-	def prepare (tree:JsTree):JsTree = {
+	def prepare (tree:JsTree) :JsTree = {
 		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, prepare).asInstanceOf[T]
 		
 		tree match {
@@ -97,7 +95,7 @@ object JsAstProcessor {
 						returnType
 					),
 					params
-				) => {
+				) => visit [JsMap] {
 					JsMap(
 						params.collect({
 							case JsApply( JsTypeApply( JsApply( JsSelect( JsApply( JsTypeApply( JsApply( JsSelect( JsPredef(), "any2ArrowAssoc", _, _), _), _), List(JsLiteral(key,_))), _, _, _), _), _), List(value)) => {
@@ -108,6 +106,32 @@ object JsAstProcessor {
 			}
 			
 			// lists
+			/*
+			case JsApply ( 
+					JsTypeApply( 
+						JsSelect( 
+							JsSelect( 
+								JsSelect(
+									JsSelect(JsIdent("scala",_), "collection", JsSelectType.Module, _), 
+									"immutable", 
+									JsSelectType.Module,
+									_
+								), 
+								"List", 
+								JsSelectType.Module,
+								_
+							), 
+							"apply", 
+							JsSelectType.Method,
+							_
+						),
+						_
+					), 
+					params
+				) => {
+				JsArray(params)
+			}
+			*/
 			case JsApply ( 
 					JsTypeApply( 
 						JsApply( 
@@ -132,7 +156,7 @@ object JsAstProcessor {
 						_
 					), 
 					params
-				) => {
+				) => visit [JsArray] {
 				JsArray(params)
 			}
 							
@@ -160,8 +184,25 @@ object JsAstProcessor {
 	def transformTernaries (tree:JsTree):JsTree = {
 		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, transformTernaries).asInstanceOf[T]
 		
-		def jsIfToTernary (jsif:JsIf) = JsTernary(jsif.cond, jsif.thenp, jsif.elsep)
+		def jsIfToTernary (jsif:JsIf) = JsTernary(
+			jsif.cond, 
+			jsif.thenp match {
+				case JsReturn(expr) => expr
+				case x => x
+			},
+			jsif.elsep match {
+				case JsReturn(expr) => expr
+				case x => x
+			}
+		)
 		
+		def tryTernary (a:JsTree) = {
+			a match {	
+				case i:JsIf => jsIfToTernary(i)
+				case x => x
+			}
+		}
+			
 		tree match {
 						
 			// ternary
@@ -173,10 +214,23 @@ object JsAstProcessor {
 				JsAssign (lhs, jsIfToTernary(i))
 			}
 			case a @ JsApply (fun, params) => visit {
-				JsApply(fun, params.map(_ match {
-					case i:JsIf => jsIfToTernary(i)
-					case x => x
-				}))
+				JsApply(fun, params.map(tryTernary))
+			}
+			case m @ JsMethod (owner, name, params, body, ret) => visit {
+				JsMethod(
+					owner, 
+					name, 
+					params, 
+					if (ret != JsType.VoidT) tryTernary(body) else body,
+					ret
+				)
+			}
+			case m @ JsInfixOp(operand1, operand2, op) => visit {
+				JsInfixOp(
+					tryTernary(operand1),
+					tryTernary(operand2),
+					op
+				)
 			}
 			
 			case x => visit[JsTree](x)
@@ -242,6 +296,20 @@ object JsAstProcessor {
 				JsSelect(qualifier, "length", JsSelectType.Prop, JsType.NumberT)
 			}
 			
+			// remove implicit canBuildFrom
+			case JsApply(
+				a @ JsApply(_,_), 
+				List(
+					JsApply(
+						JsSelect(JsSelect(JsSelect(s @ JsSelect(_,"collection",JsSelectType.Module,_),"immutable",JsSelectType.Module,_),"List",JsSelectType.Module,_),"canBuildFrom",JsSelectType.Method,_),
+						Nil
+					)
+				)
+			) => visit [JsApply] {
+				println(a)
+				a
+			}
+			
 			// remove default invocations
 			case JsApply (s, params) => visit[JsApply] {
 				JsApply (
@@ -264,6 +332,61 @@ object JsAstProcessor {
 		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, transform).asInstanceOf[T]
 		
 		tree match {
+			// XML
+			// children
+			case b @ JsBlock(Nil, JsBlock(buf @ JsVar("$buf",_,_) :: tail, expr)) => visit[JsArray] {
+				val children = tail.map(x => {
+					x.asInstanceOf[JsApply].params.head
+				})
+				JsArray(children)
+			}
+			// construction
+			case JsBlock(Nil, b @ JsBlock(stats,JsApply(fun,funParams))) => visit[JsApply] {
+				val attrs = if (stats.length == 0) Nil else stats.tail.map(s => {
+					val params = s.asInstanceOf[JsAssign]
+						.rhs.asInstanceOf[JsApply]
+						.params
+					(
+						params(0).asInstanceOf[JsLiteral].value, 
+						params(1).asInstanceOf[JsApply].params(0).asInstanceOf[JsLiteral].value
+					)
+				})
+				JsApply(
+					fun, 
+					List(
+						funParams(0), // prefix 
+						funParams(1), // tagname
+						JsMap( 		// attributes
+							attrs.map(el => JsMapElement(el._1.stripPrefix("\"").stripSuffix("\""), JsLiteral(el._2, JsType.StringT)) )
+						),
+						if (funParams.length > 4) funParams(4) else JsArray(Nil) //children
+					)
+				)
+			}
+			// empty 
+			case JsBlock(Nil, b @ JsBlock(Nil, JsBlock(JsApply(fun,funParams) :: _,JsType.VoidT))) => visit[JsApply] {
+				JsApply(
+					fun, 
+					List(
+						funParams(0), // prefix 
+						funParams(1), // tagname
+						JsMap(Nil), //attributes
+						if (funParams.length > 4) funParams(4) else JsArray(Nil) //children
+					)
+				)
+			}
+			case JsClassRef("scala.xml.Elem") => visit[JsClassRef] {
+				JsClassRef("s2js.xml.Elem")
+			}
+			case JsType("scala.xml.Elem", Nil) => visit[JsType] {
+				JsType("s2js.xml.Elem", Nil)
+			}
+			case JsClassRef("scala.xml.Text") => visit[JsClassRef] {
+				JsClassRef("s2js.xml.Text")
+			}
+			case JsType("scala.xml.Text", Nil) => visit[JsType] {
+				JsType("s2js.xml.Text", Nil)
+			}
 
 			case JsSelect(JsSelect(JsSelect(JsIdent("scala",_), "collection", JsSelectType.Module, _), "immutable", JsSelectType.Module, _), "List", JsSelectType.Class, _) => {
 				JsType.ArrayT
@@ -280,9 +403,13 @@ object JsAstProcessor {
 				JsApply(JsSelect(q, "join", t), List(glue))
 			}
 			
+			// map on array (list)
+			case a @ JsApply(JsSelect(q @ JsArray(_), "map", JsSelectType.Method, _), params) => visit {
+				JsApply(JsSelect(JsSelect(JsIdent("goog"), "array", JsSelectType.Module), "map", JsSelectType.Method), List(q, params(0)))
+			}
 			
 			// unary bang
-			case JsApply( JsSelect(qualifier, "unary_$bang", t, _), _) => visit {
+			case JsApply( JsSelect(qualifier, "unary_$bang", t, _), _) => visit [JsUnaryOp] {
 				JsUnaryOp(qualifier, "!")
 			}
 			
@@ -309,7 +436,7 @@ object JsAstProcessor {
 			case JsSelect( JsIdent("browser",_), name, t, _) => visit {
 				JsIdent(name)
 			}
-			case JsType (name:String, t @ _) if name.startsWith("browser.") => visit {
+			case JsType (name:String, t @ _) if name.startsWith("browser.") => visit [JsType] {
 				JsType (name.stripPrefix("browser."), t)
 			}
 			

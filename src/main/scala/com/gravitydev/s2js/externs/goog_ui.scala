@@ -16,11 +16,13 @@ class ButtonRenderer extends ControlRenderer
 
 class Component (opt_domHelper:DomHelper=null) {
 	def createDom () {}
-	def getElement () : Element = null
 	def getDomHelper () : DomHelper = null
-	def isInDocument () : Boolean = false
-	def setElementInternal (el:Element) {}
+	def getElement () : Element = null
+	def getElementByFragment (idFragment:String) :Element = null
 	def getId () : String = ""
+	def isInDocument () : Boolean = false
+	def makeId (idFragment:String) = ""
+	def setElementInternal (el:Element) {}
 	def render (opt_parentElement:Element = null) {}
 	def enterDocument () {}
 	def decorate (element:Element) {}
@@ -81,6 +83,8 @@ class ContainerRenderer
 
 class Control (content:AnyRef /* ControlContent */, renderer:ControlRenderer = null, domHelper:DomHelper = null) extends Component (domHelper) {
 	def setOpen (open:Boolean) {}
+	def setContent (content:AnyRef /* ControlContent */) {}
+	def getContent () :AnyRef = null
 }
 
 class ControlContent
@@ -93,7 +97,7 @@ object CustomButtonRenderer {
 	def getInstance ():CustomButtonRenderer = null
 }
 
-class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomHelper = null) extends Component (domHelper) {
+class Dialog (var class_ :String = "", useIframeMask:Boolean = false, domHelper:DomHelper = null) extends Component (domHelper) {
 	var title_ : String = _
 	var content_ : String = _
 	var buttons_ : Dialog.ButtonSet = _
@@ -104,6 +108,7 @@ class Dialog (class_ :String = "", useIframeMask:Boolean = false, domHelper:DomH
 	var contentEl_ : Element = _
 	var buttonEl_ : Element = _
 	
+	def onKey_ (e:goog.events.BrowserEvent) {}
 	def manageBackgroundDom_() {}
 	def setTitle (title:String) {}
 	def setContent (html:String) {}
@@ -185,7 +190,7 @@ class Menu (opt_domHelper:goog.dom.DomHelper=null, opt_renderer:MenuRenderer=nul
 	def addItem (item:MenuSeparator) {}
 }
 
-class MenuButton (content:String /* ControlContent */, opt_menu:Menu=null, opt_renderer:MenuButtonRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends Button (content) {
+class MenuButton (content:AnyRef /* ControlContent */, opt_menu:Menu=null, opt_renderer:MenuButtonRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends Button (content) {
 	def setOpen (open:Boolean, opt_e:goog.events.Event=null) {}
 	def getMenu ():Menu = null
 	def setFocusablePopupMenu (focusable:Boolean) {}
@@ -261,7 +266,11 @@ class PopupMenu (opt_domHelper:goog.dom.DomHelper = null, opt_renderer:MenuRende
 	def setToggleMode (toggle:Boolean) {}
 }
 
-class Select (caption:String /* ControlContent */, opt_menu:Menu=null, opt_renderer:ButtonRenderer=null, opt_domHelper:goog.dom.DomHelper=null) extends MenuButton (caption)
+class Select (caption:AnyRef /* ControlContent */, opt_menu:Menu=null, opt_renderer:ButtonRenderer=null, opt_domHelper:goog.dom.DomHelper=null) 
+	extends MenuButton (caption) {
+	def getSelectedItem () :MenuItem = null
+	def updateCaption_ () {}
+}
 
 class Separator (opt_renderer:MenuSeparatorRenderer=null, op_domHelper:goog.dom.DomHelper=null) extends Control(null)
 

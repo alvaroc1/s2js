@@ -53,12 +53,21 @@ object JsPrinter {
 				const + props + methds
 			}
 			
-			case o @ JsModule (owner, name, body, props, methods, classes, modules) => {				
+			case o @ JsModule (owner, name, body, props, methods, classes, modules) => {
+				/* not sure why this is here, modules should not be functions
 				val b = print(owner)+"."+name+" = function () { \n" +
 						indent(
 							(body map print).mkString("\n")
 						) +"\n" +
 					"}; \n"
+				*/
+				val fullName = print(owner)+"."+name
+				
+				/* HACK: we should actually check weather this module is a companion, 
+				 * 	if it is, we should not instantiate it since it will override its class
+				 *  for right now, this ugly hack will have to do
+				 */
+				val b = "if (!"+fullName+") " + fullName + " = {};\n"
 				
 				val p = props.map(printModuleProp(_)+"\n").mkString("")
 				
@@ -106,7 +115,7 @@ object JsPrinter {
 			}
 			
 			case JsLiteral (value, tpe) => {
-				value
+				value.replace("\n", "\\n")
 			}
 			
 			case JsNew ( s ) => "new " + print(s)
@@ -231,20 +240,26 @@ object JsPrinter {
 				""
 			}
 			
-			case JsMap (elements) => {
-				"{\n" +
-				indent(
-					elements.map((e) => "\"" + e.key + "\": " + print(e.value)).mkString(",\n")
-				) +
-				"}"
+			case JsMap (elements) => elements match {
+				case Nil => "{}"
+				case _ => {
+					"{\n" +
+					indent(
+						elements.map((e) => "\"" + e.key + "\": " + print(e.value)).mkString(",\n")
+					) +
+					"}"
+				}
 			}
 			
-			case JsArray (elements) => {
-				"[\n" +
-				indent(
-					elements.map(print).mkString(",\n")
-				) +
-				"]"
+			case JsArray (elements) => elements match {
+				case Nil => "[]"
+				case _ => {
+					"[\n" +
+					indent(
+						elements.map(print).mkString(",\n")
+					) +
+					"]"
+				}
 			}
 
 			case JsReturn (expr) => {

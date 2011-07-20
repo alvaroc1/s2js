@@ -82,7 +82,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				println("SYMBOL: " + s)
 				println("name: " + s.name)
 				println("hasDefault: " + s.hasDefault)
-				println("isGetterOrSetter: " + s.isGetterOrSetter)
+				println("isGetter: " + s.isGetter)
+				println("isSetter: " + s.isSetter)
 				println("isMethod: " + s.isMethod)
 				println("isMutable: " + s.isMutable)
 				println("isParamAccessor: " + s.isParamAccessor)
@@ -128,7 +129,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		/** 
 		 * Get a symbol's type as a JsTree (JsSelect or JsBuiltInType) 
 		 */
-		@deprecated("Try to use getJsType or getJsRef") 
+		@deprecated("Try to use getJsType or getJsRef", "A while ago") 
 		def getType (typeTree:Symbol):JsTree = {
 			typeTree match {
 				case StringClass => JsType.StringT
@@ -143,7 +144,9 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				
 				// construct the JsSelect AST from the symbol
 				// stop at the root
-				case x if x.owner.name.toString == "<root>" => JsIdent(x.name.toString)
+				case x if x.owner.name.toString == "<root>" => {
+					JsIdent(x.name.toString, JsType.PackageT)
+				}
 				
 				case x => JsSelect( 
 					getType(x.owner), 
@@ -246,6 +249,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 		
 		def getJsTreeList[T <: JsTree] (l:List[Tree]):List[T] = l map (getJsTree(_).asInstanceOf[T])
 		
+		def getMethods (body:List[AnyRef]) = body.collect({ case x:DefDef if !x.symbol.isGetter && !x.symbol.isSetter && !x.symbol.isConstructor => x })
+		
 		def getJsTree (node:Tree) : JsTree = node match {
 
 			case c @ ClassDef(mods, name, tparams, Template(parents, self, body)) => {				
@@ -257,14 +262,14 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 							
 				// get properties
 				// all valdefs that have a corresponding accessor
-				val accessorNames = body.collect({ case x:DefDef if x.mods.isAccessor => x.name.toString })
+				val accessorNames = body.collect({ case x:DefDef if x.symbol.isGetter => x.name.toString })
 				val properties = body.collect({
 					// don't know why but valdef's name has a space at the end
 					// trim it
 					case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
 				})
 			
-				val methods = body.collect({ case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => x })
+				val methods = getMethods(body)
 
 				JsClass(
 					getJsRef(c.symbol.owner.tpe),
@@ -279,21 +284,25 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			case m @ ModuleDef (mods, name, Template(parents, self, body)) => {
 				val bodyContents = body.groupBy(_ match {
 					case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => "properties"
-					case x:DefDef if !x.mods.isAccessor && !x.symbol.isConstructor => "methods"
+					case x:DefDef if /*!x.mods.isAccessor*/ !x.mods.isSynthetic && !x.symbol.isConstructor => "methods"
 					case x:ClassDef => "classes"
 					case x:ModuleDef => "modules"
 					case _ => "expressions"
 				})
 				
+				val methods = getMethods(body)
+				
+				body.foreach(inspect)
+				
 				val properties = bodyContents.get("properties").getOrElse(Nil).map(_.asInstanceOf[ValDef])
-				val methods = bodyContents.get("methods").getOrElse(Nil).map(_.asInstanceOf[DefDef])
 				val classes = bodyContents.get("classes").getOrElse(Nil).map(_.asInstanceOf[ClassDef])
 				val modules = bodyContents.get("modules").getOrElse(Nil).map(_.asInstanceOf[ModuleDef])
 				
 				// get the expressions in the body of the <init> method, remove the constructor
 				val expressions = bodyContents.get("expressions").get.filter({
+					case x:DefDef if x.mods.isSynthetic => false
 					case x:DefDef if x.name.toString == "<init>" => false
-					case x if x.symbol.isGetterOrSetter => false
+					case x if x.symbol.isGetter => false
 					case _ => true
 				})
 				
@@ -347,20 +356,6 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsNew( getJsRef(select.tpe) )
 			}
 			
-
-			// toString on XML literal
-			case Apply(Select(b @ Block(_, Block(_, elemConst @ Apply(Select(New(tpt),_), args))), methodName), Nil) if methodName.toString == "toString" && tpt.toString == "scala.xml.Elem" => {
-				val x = getXml(b)
-				
-				//val pretty = xml.Utility.toXML(x, minimizeTags=false)
-				val pretty = xml.Xhtml.toXhtml(x)
-				
-				// HACK: get the variables
-				// TODO: handle expressions
-				JsLiteral("'" + pretty.toString.replace("{{{", "'+").replace("}}}", "+'") + "'", JsType.StringT)
-				//JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method ), getJsTreeList(args))
-			}
-			
 			/*
 			// application on super
 			case Apply(Select(qualifier @ Super(qual, mix), name), args) => {
@@ -389,7 +384,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					// if it's a method, and it wasn't caught on the previous case
 					// it is a no-parameter-list application
 					// wrap with apply
-					case s if !s.symbol.isGetterOrSetter && s.symbol.isMethod => {
+					case s if !s.symbol.isGetter && s.symbol.isMethod => {
 						val t = getJsType(s.tpe)
 						JsApply( JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Method, getJsType(s.tpe)), Nil)
 					}
@@ -398,11 +393,12 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 							getJsTree(qualifier), 
 							name.toString,
 							s match {
-								case s if (s.symbol.isGetterOrSetter) => JsSelectType.Prop
-								case s if (s.symbol.isParamAccessor) => JsSelectType.ParamAccessor
-								case s if (s.symbol.isPackage) => JsSelectType.Package
+								case s if s.symbol.isGetter => JsSelectType.Prop
+								case s if s.symbol.isParamAccessor => JsSelectType.ParamAccessor
+								case s if s.symbol.isPackage => JsSelectType.Package
 								case s if (s.symbol.isClass || s.symbol.isType) => JsSelectType.Class
-								case s if (s.symbol.isModule) => JsSelectType.Module 
+								case s if s.symbol.isModule => JsSelectType.Module
+								case s if s.symbol.isMethod => JsSelectType.Method
 								
 								case s => {
 									inspect (s.symbol)
@@ -461,6 +457,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 						JsIdent (name.toString, tpe.toString)
 					}
 					*/
+					case x => JsEmpty()
 				}
 			}
 			
@@ -526,62 +523,24 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				JsEmpty()
 			}
 			
+			case t @ Typed (expr, tpt) => {
+				JsBlock(Nil, getJsTree(expr))
+			}
+			
 			case t:Tree => {
+				println(t)
 				JsOther(t.getClass.toString, for (child <- t.children) yield getJsTree(child))
 			}
 		}
 		
-		def getLiteral (node:Tree):JsLiteral = node match {
-			case Literal(Constant(value)) => value match {
-				case v:String => JsLiteral("\""+v.toString.replace("\"", "\\\"")+"\"", JsType.StringT)
-				case _ => JsLiteral( if (value != null) value.toString else "null", JsType.UnknownT )
-			}
-			case a @ _ => {
-				JsLiteral("", JsType.UnknownT)
-			}
-		}
-		
-		def getXml (tree:Tree, attributes:Map[String,String]=Map()):xml.Node = {
-			tree match {
-				case Apply(Select(New(tpt),_), args) => tpt match {
-					case tpt if tpt.toString == "scala.xml.Elem" => 
-						val tag = args(1).toString.stripPrefix("\"").stripSuffix("\"")
-						
-						var prev:xml.MetaData = xml.Null
-						attributes.foreach((t) => {
-							val a = new xml.UnprefixedAttribute(t._1, t._2, prev)
-							prev = a
-						})
-						
-						val children = if (args.length > 4) {
-							val Typed(Block(stats, expr), tpt) = args(4)
-							
-							// get children from buffer
-							for (a @ Apply(fun, List(node)) <- stats) yield getXml(node)
-						} else {
-							Nil
-						}
-						
-						new xml.Elem(null, tag, prev, xml.TopScope, children : _*)
-						
-					case tpt if tpt.toString == "scala.xml.Text" => {
-						
-						new xml.Text(
-							stripQuotes(args(0).toString)
-								.replace("""\012""", """\n""") // new line
-								.replace("""\011""", """\t""") // tab
-						)
-					}
+		def getLiteral (node:Tree):JsLiteral = {
+			node match {
+				case Literal(Constant(value)) => value match {
+					case v:String => JsLiteral("\""+v.toString.replace("\"", "\\\"")+"\"", JsType.StringT)
+					case _ => JsLiteral( if (value != null) value.toString else "null", JsType.NullT )
 				}
-				case Block(_, inner @ Block(stats, a @ Apply(_,_))) => {
-					// get attributes
-					val attributes = (for (Assign(_, Apply(fun, List(name, Apply(_, List(value)), _))) <- stats) 
-						yield (stripQuotes(name.toString), stripQuotes(value.toString))).toMap
-					
-					getXml(a, attributes)
-				}
-				case Ident(name) => {
-					new xml.Text("{{{"+name+"}}}")
+				case a @ _ => {
+					JsLiteral("", JsType.UnknownT)
 				}
 			}
 		}

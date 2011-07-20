@@ -28,7 +28,6 @@ case class JsApply (fun:JsTree, params:List[JsTree]) extends JsTree
 case class JsType (name:String, typeParams:List[String]=Nil) extends JsTree
 trait JsBuiltInType
 object JsType {
-	// object IntT extends JsType("Int") with JsBuiltInType
 	object StringT extends JsType("String") with JsBuiltInType
 	object ArrayT extends JsType("Array") with JsBuiltInType
 	object ObjectT extends JsType("Object") with JsBuiltInType
@@ -38,6 +37,8 @@ object JsType {
 	object UnknownT extends JsType("UNKOWN") with JsBuiltInType // probably not built-in?
 	object AnyT extends JsType("Any") with JsBuiltInType		// probably not built-in?
 	object VoidT extends JsType("Void") with JsBuiltInType
+	object PackageT extends JsType("Package") with JsBuiltInType
+	object NullT extends JsType("Null") with JsBuiltInType
 }
 
 trait JsRef extends JsTree {
