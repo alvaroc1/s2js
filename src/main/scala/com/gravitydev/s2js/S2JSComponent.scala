@@ -12,8 +12,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 	import global._
 	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, FunctionClass }
 	import treeInfo.{ isSuperConstrCall }
-	
-	//val runsAfter = List[String]("refchecks")
+
 	val runsAfter = List[String]("typer")
 	
 	val phaseName = "s2js"
@@ -64,8 +63,8 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			//println(JsAstPrinter print parsedUnit)
 			//println("======== AFTER CLEANING =========")
 			//println(JsAstPrinter print cleaned)
-			println("======== AFTER TRANSFORMING =====")
-			println(JsAstPrinter print processed)
+			//println("======== AFTER TRANSFORMING =====")
+			//println(JsAstPrinter print processed)
 			
 			var stream = new FileWriter(dir + "/" + name + ".js")
 			var writer = new BufferedWriter(stream)
@@ -291,8 +290,6 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 				})
 				
 				val methods = getMethods(body)
-				
-				body.foreach(inspect)
 				
 				val properties = bodyContents.get("properties").getOrElse(Nil).map(_.asInstanceOf[ValDef])
 				val classes = bodyContents.get("classes").getOrElse(Nil).map(_.asInstanceOf[ClassDef])

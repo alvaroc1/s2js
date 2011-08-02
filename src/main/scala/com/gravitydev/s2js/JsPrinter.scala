@@ -22,7 +22,7 @@ object JsPrinter {
 				// only one object as top level with a main method
 				val content = classes match {
 					// script, print only the body of the main method
-					case JsModule(_, _, _, _, JsMethod(_, "main", args, body, _) :: Nil, _, _) :: Nil if false => {
+					case JsModule(_, _, _, _, JsMethod(_, "main", args, body, _) :: Nil, _, _) :: Nil => {
 						// values from window
 						val values = args.map((a:JsParam)=>"window[\""+a.name+"\"]").mkString(", ")
 						
