@@ -14,7 +14,7 @@ class Button (content:AnyRef /* ControlContent*/, renderer:ButtonRenderer=null, 
 
 class ButtonRenderer extends ControlRenderer
 
-class Component (opt_domHelper:DomHelper=null) {
+class Component (opt_domHelper:DomHelper=null) extends goog.events.EventTarget {
 	def createDom () {}
 	def getDomHelper () : DomHelper = null
 	def getElement () : Element = null

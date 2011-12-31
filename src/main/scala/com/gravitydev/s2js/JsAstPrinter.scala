@@ -6,12 +6,12 @@ object JsAstPrinter {
 	
 	
 	def print (tree:JsTree):String = tree match {
-		case JsSourceFile (path, name, classes) => {
+		case JsSourceFile (path, name, children) => {
 			"JsSourceFile (\n" +
 			indent(
 				"path: " + path + "\n" +
 				"name: " + name + "\n" +
-				"classes: " + printList(classes) + "\n"
+				"children: " + printList(children) + "\n"
 			) +
 			")"
 		}

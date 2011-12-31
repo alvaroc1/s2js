@@ -6,6 +6,11 @@ package goog {
 		def listen [T<:Event](obj:AnyRef, event:String, fn:(T)=>Any) {}
 		def listen (obj:AnyRef, events:List[String], fn:()=>Any) {}
 		def listen (obj:AnyRef, event:String, fn:()=>Any) {}
+		
+		def listenOnce [T<:Event](obj:AnyRef, events:List[String], fn:(T)=>Any) {}
+		def listenOnce [T<:Event](obj:AnyRef, event:String, fn:(T)=>Any) {}
+		def listenOnce (obj:AnyRef, events:List[String], fn:()=>Any) {}
+		def listenOnce (obj:AnyRef, event:String, fn:()=>Any) {}
 	}
 }
 
@@ -30,7 +35,10 @@ package goog.events {
 	
 	class FocusHandler
 	
-	class EventTarget
+	class EventTarget {
+		def dispatchEvent (e :String) :Boolean = false
+		def dispatchEvent (e :Event) :Boolean = false
+	}
 	
 	object EventType {
 		// Mouse events

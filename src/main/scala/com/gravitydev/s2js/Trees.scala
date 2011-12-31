@@ -1,12 +1,17 @@
 package com.gravitydev.s2js
 
 trait JsTree
+trait JsMod extends JsTree {
+	val body :List[JsTree]
+}
 
 case class JsSourceFile (path:String, name:String, children:List[JsTree]) extends JsTree
 
+case class JsApp (owner :JsRef, name :String, body :List[JsTree]) extends JsMod
+
 case class JsClass (owner:JsRef, name:String, parents:List[JsSelect], constructor:JsConstructor, properties:List[JsProperty], methods:List[JsMethod]) extends JsTree
 
-case class JsModule (owner:JsRef, name:String, body:List[JsTree], properties:List[JsProperty], methods:List[JsMethod], classes:List[JsClass], modules:List[JsModule]) extends JsTree
+case class JsModule (owner:JsRef, name:String, body:List[JsTree], properties:List[JsProperty], methods:List[JsMethod], classes:List[JsClass], modules:List[JsModule]) extends JsMod
 
 case class JsMethod (owner:JsRef, name:String, params:List[JsParam], body:JsTree, ret:JsTree) extends JsTree
 

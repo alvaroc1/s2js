@@ -10,7 +10,7 @@ import JsAstProcessor._
 
 class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginComponent {
 	import global._
-	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, FunctionClass }
+	import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, AnyRefClass, FunctionClass }
 	import treeInfo.{ isSuperConstrCall }
 
 	val runsAfter = List[String]("typer")
@@ -54,6 +54,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			lazy val parsedUnit = getJsSourceFile(unit.body.asInstanceOf[PackageDef], name)
 			
 			val processed = JsAstProcessor process parsedUnit
+			println( JsAstPrinter print processed )
 			
 			// print and save
 			val code = JsPrinter print processed
@@ -160,11 +161,13 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 			}
 		}
 		
-		def getJsType (tpe:Type):JsType = {			
+		def getJsType (tpe:Type):JsType = {
+			val ts = tpe.typeSymbol
+			
 			tpe.typeSymbol match {
 				case IntClass|DoubleClass => JsType.NumberT
 				case StringClass => JsType.StringT
-				case AnyClass => JsType.AnyT
+				case AnyClass|AnyRefClass|ObjectClass => JsType.AnyT
 				case BooleanClass => JsType.BooleanT
 				case x if FunctionClass.contains(x) => JsType.FunctionT
 				case x if x.isModuleClass => JsType(x.asInstanceOf[ModuleClassSymbol].fullName)
@@ -278,6 +281,15 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
 					properties map getProperty,
 					methods map (getJsTree(_).asInstanceOf[JsMethod])
 				)
+			}
+			
+			// App
+			case m @ ModuleDef (mods, name, Template(_ :: a :: _, self, body)) if a.symbol.toString == "trait App" => {
+				val s = a.symbol
+				
+				val b = s.toString()
+				
+				JsEmpty()
 			}
 			
 			case m @ ModuleDef (mods, name, Template(parents, self, body)) => {

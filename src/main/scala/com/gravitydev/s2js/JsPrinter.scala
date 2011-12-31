@@ -42,16 +42,7 @@ object JsPrinter {
 				provides + reqs + content
 			}
 			
-			case c @ JsClass(owner, name, superClass, constructor, properties, methods) => {
-				
-				val const = printConstructor(c, constructor, properties)
-				
-				val props = properties.map(printProp(_)+"\n").mkString("")
-				
-				val methds = methods.map(print).mkString("")
-				
-				const + props + methds
-			}
+			case c :JsClass => printClass(c)
 			
 			case o @ JsModule (owner, name, body, props, methods, classes, modules) => {
 				/* not sure why this is here, modules should not be functions
@@ -278,6 +269,14 @@ object JsPrinter {
 			case JsPackageRef (name) => name
 			case JsModuleRef (name) => name
 		}
+	}
+	
+	def printClass (c :JsClass) = {
+		val const = printConstructor(c, c.constructor, c.properties)
+		val props = c.properties.map(printProp(_)+"\n").mkString("")
+		val methds = c.methods.map(print).mkString("")
+		
+		const + props + methds
 	}
 	
 	def printType (node:JsTree) = node match {

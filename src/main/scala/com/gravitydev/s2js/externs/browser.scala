@@ -81,6 +81,7 @@ class HTMLDivElement extends Element
 
 class HTMLFormElement extends Element {
 	def submit () {}
+	var onsubmit :()=>Boolean = null
 }
 
 class HTMLIFrameElement extends Element 
