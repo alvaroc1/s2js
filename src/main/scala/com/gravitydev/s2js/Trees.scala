@@ -55,6 +55,8 @@ case class JsPackageRef (name:String) extends JsRef
 case class JsMethodRef (name:String) extends JsRef
 case class JsUnknownRef (name:String) extends JsRef
 
+object DefaultModuleRef extends JsModuleRef ("_default_")
+
 case class JsThis () extends JsTree
 case class JsIf (cond:JsTree, thenp:JsTree, elsep:JsTree) extends JsTree
 case class JsTernary (cond:JsTree, thenp:JsTree, elsep:JsTree) extends JsTree

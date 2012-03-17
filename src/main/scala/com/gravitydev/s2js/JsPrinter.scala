@@ -54,11 +54,11 @@ object JsPrinter {
 				*/
 				val fullName = print(owner)+"."+name
 				
-				/* HACK: we should actually check weather this module is a companion, 
+				/* HACK: we should actually check whether this module is a companion, 
 				 * 	if it is, we should not instantiate it since it will override its class
 				 *  for right now, this ugly hack will have to do
 				 */
-				val b = "if (!"+fullName+") " + fullName + " = {};\n"
+				//val b = "if (!"+fullName+") " + fullName + " = {};\n"
 				
 				val p = props.map(printModuleProp(_)+"\n").mkString("")
 				
@@ -77,7 +77,7 @@ object JsPrinter {
 				val c = classes.map(print).mkString("")
 				val m = modules.map(print).mkString("")
 				
-				b + p + methds + c + m + exported
+				p + methds + c + m + exported
 			}
 			
 			case m @ JsMethod (owner, name, params, body, ret) => {
