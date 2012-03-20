@@ -114,7 +114,9 @@ trait S2JSProcessor extends Processor2 { self :Global =>
   
   def getJsTreeList[T <: JsTree] (l:List[Tree]):List[T] = l map (getJsTree(_).asInstanceOf[T])
   
-  protected def getMethods (body:List[AnyRef]) :List[DefDef] = body.collect({ case x:DefDef if !x.symbol.isGetter && !x.symbol.isSetter && !x.symbol.isConstructor => x })
+  protected def getMethods (body:List[AnyRef]) :List[DefDef] = body.collect({ 
+    case x:DefDef if !x.symbol.isGetter && !x.symbol.isSetter && !x.symbol.isConstructor => x 
+  })
   
   def getJsTree (node:Tree) : JsTree = node match {
     /*

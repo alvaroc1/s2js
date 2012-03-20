@@ -3,6 +3,8 @@ package com.gravitydev.s2js.runner
 //import plugintemplate.PluginProperties
 import scala.tools.nsc.CompilerCommand
 import scala.tools.nsc.Settings
+import scala.tools.nsc.{Global, Settings, SubComponent}
+import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
 
 import java.io.File
 
@@ -12,7 +14,6 @@ object S2JSPluginRunner {
 		
 		settings.classpath.tryToSet(List("bin"))
 		settings.d.tryToSet(List("bin"))
-		
 		
 		val files = List(
 			//"src/main/scala/com/gravitydev/s2js/sample/Dialog.scala"
@@ -73,8 +74,6 @@ object S2JSPluginRunner {
 
 
 //import plugintemplate.{TemplateAnnotationChecker, TemplatePlugin}
-import scala.tools.nsc.{Global, Settings, SubComponent}
-import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
 
 /** This class is a compiler that will be used for running
  *	the plugin in standalone mode.

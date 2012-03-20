@@ -216,9 +216,8 @@ trait Processor2 { self :S2JSProcessor with Global =>
   }
   
   def addReturn (tree:ast.Tree):ast.Tree = tree match {
-    /*
-    case JsIf(cond, thenExpr, elseExpr) => JsIf(cond, addReturn(thenExpr), addReturn(elseExpr))
-    case JsBlock(stats, expr) => JsBlock(stats, addReturn(expr))
+    case ast.If(cond, thenExpr, elseExpr) => ast.If(cond, addReturn(thenExpr), addReturn(elseExpr))
+    /* case JsBlock(stats, expr) => JsBlock(stats, addReturn(expr))
     case JsType.VoidT => JsType.VoidT */
     case x => ast.Return(tree)
   }

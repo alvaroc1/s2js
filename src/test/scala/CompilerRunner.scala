@@ -8,11 +8,11 @@ object S2JSParser {
   def parse (code :String) = {
     val settings = new Settings
 
-	val scalaLib = "/home/alvaro/.sbt/boot/scala-2.9.1/lib/scala-library.jar"
-	settings.classpath.tryToSet(scalaLib :: Nil)
+    // must be absolute, can't use ~
+    val scalaLib = "/Users/alvarocarrasco/.sbt/boot/scala-2.9.1/lib/scala-library.jar"
+    settings.classpath.value = scalaLib
     
     val parser = new S2JSParser(settings)
-
     val ast = parser.parse(code)
     
     Printer.print(ast)
