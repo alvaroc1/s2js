@@ -36,8 +36,6 @@ trait S2JSProcessor extends Processor2 { self :Global =>
     // transform to Js AST
     lazy val parsedUnit = getJsSourceFile(unit)
     
-    println(parsedUnit)
-    
     /*
     val processed = JsAstProcessor process parsedUnit
     

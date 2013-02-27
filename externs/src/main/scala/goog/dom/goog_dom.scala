@@ -3,20 +3,21 @@ package goog.dom
 import browser._
 
 object `package` {
+  private [dom] def x[T] = null.asInstanceOf[T]
 	def getDomHelper (element:Element = null) : DomHelper = null
-	def getDocument (): Document = null
+	def getDocument (): Document = null.asInstanceOf[Document]
 	def getElement (id:String) : Element = null
 	def getElementsByTagNameAndClass (opt_tag:String="", opt_class:String="", opt_el:Element=null):List[Element] = null
 	def getElementsByClass (className:String, opt_el:Element = null):{val length:Int} = null
 	def getElementByClass (className:String, opt_el:Element = null): Element = null
 	def setProperties (elements:Element, properties:AnyRef) {}
 	
-	def getViewportSize (opt_window:Window = null):goog.math.Size = null
+	def getViewportSize (opt_window:Window = x[Window]):goog.math.Size = null
 	def getDocumentHeight ():Int = 0
-	def getPageScroll (opt_window:Window = null):goog.math.Coordinate = null
+	def getPageScroll (opt_window:Window = x[Window]):goog.math.Coordinate = null
 	def getDocumentScroll ():goog.math.Coordinate = null
 	def getDocumentScrollElement ():Element = null
-	def getWindow (opt_doc:Document=null):Window = null
+	def getWindow (opt_doc:Document=x[Document]):Window = x[Window]
 	def createDom (tag:String, others:AnyRef*):Element = null
 	def createElement (name:String):Element = null
 	def createTextNode (content:String):Text = null
@@ -41,8 +42,8 @@ object `package` {
 	def getPreviousNode (node:Node):Node = null
 	def isNodeLike (obj:AnyRef):Boolean = false
 	
-	def getFrameContentDocument (frame:Element):Document = null
-	def getFrameContentWindow (frame:HTMLIFrameElement):Window = null
+	def getFrameContentDocument (frame:Element):Document = x[Document]
+	def getFrameContentWindow (frame:HTMLIFrameElement):Window = x[Window]
  	
 	def setTextContent(el:Element, content:String) {}
 	def getAncestorByTagNameAndClass (element:Element, tag:String="", class_ :String = "") :Node = null
@@ -51,8 +52,8 @@ object `package` {
 class DomHelper {
 	def insertSiblingBefore (el1:Element, el2:Element) {}
 	def createDom (tag:String, opt_attributes:Any, args:Any*):Element = null
-	def getDocument ():Document = null
-	def getWindow ():Window = null
+	def getDocument ():Document = x[Document]
+	def getWindow ():Window = x[Window]
 	def createElement (name:String):Element = null
 	def getElement (id:String) : Element = null
 	def getElement (id:Element) : Element = null

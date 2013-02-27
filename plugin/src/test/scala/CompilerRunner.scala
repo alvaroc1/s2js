@@ -2,23 +2,30 @@ import scala.tools.nsc.Settings
 import scala.tools.nsc.Global
 import scala.tools.nsc.util.BatchSourceFile
 import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
-import com.gravitydev.s2js.{S2JSProcessor, Printer}
+import com.gravitydev.s2js.{S2JSProcessor, Printer, ast}
 
 object S2JSParser {
-  def parse (code :String) = {
+  def parseAST (code: String) = {
     val settings = new Settings
 
     // must be absolute, can't use ~
-    val scalaLib = "/Users/alvarocarrasco/.sbt/boot/scala-2.9.1/lib/scala-library.jar"
+    val scalaLib = "/Users/alvarocarrasco/.sbt/boot/scala-2.9.1/lib/scala-library.jar:/Users/alvarocarrasco/workspace/s2js/target/scala-2.9.1/s2js_2.9.1-0.1-SNAPSHOT.jar"
     settings.classpath.value = scalaLib
     
     val parser = new S2JSParser(settings)
-    val ast = parser.parse(code)
-    
-    Printer.print(ast)
+    parser.parse(code)
   }
+  
+  def parse (code: String) = {
+    val ast = parseAST(code)
+    
+    print(ast)
+  }
+  
+  def print (tree: ast.SourceFile) = Printer.print(tree)
+  
   def main (args :Array[String]) {
-    specs2.run(new BasicCompilerSpec)
+    //specs2.run(new BasicCompilerSpec)
   }
 }
 
@@ -28,7 +35,7 @@ class S2JSParser (settings:Settings, reporter:Reporter) extends Global(settings,
 
   def parse (code :String) = {
     val run = new Run() {
-      def compileUnit(unit :CompilationUnit) {
+      def compileUnit(unit: CompilationUnit) {
         import scala.tools.nsc.NoPhase
         val s = syntaxAnalyzer.newPhase(NoPhase)
         val n = analyzer.namerFactory.newPhase(s)

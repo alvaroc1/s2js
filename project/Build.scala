@@ -1,21 +1,17 @@
 import sbt._
-
-import sbt._
 import Keys._
 
 object S2JSBuild extends Build {
-  lazy val s2jsProject = Project(id = "s2js", base = file(".")).settings(
+  lazy val plugin = Project(id = "s2js-plugin", base = file("plugin")).settings(
+    scalaVersion := "2.9.3-RC1",
     libraryDependencies := Seq(
-	  "org.scala-lang" % "scala-compiler" % "2.9.1" % "compile;runtime;test",
-	  "org.specs2" %% "specs2" % "1.7" % "test"
+	    "org.scala-lang" % "scala-compiler" % "2.9.3-RC1" % "compile;runtime;test",
+      "org.scalatest" %% "scalatest" % "2.0.M5" % "test"
     )	  
   )
 
-  /*  
-  lazy val foo = Project(id = "hello-foo",
-                           base = file("foo"))
-
-  lazy val bar = Project(id = "hello-bar",
-                           base = file("bar"))
-                           */
+  lazy val externs = Project(id = "s2js-externs", base = file("externs")).settings(
+    scalaVersion := "2.9.3-RC1"
+  )
 }
+

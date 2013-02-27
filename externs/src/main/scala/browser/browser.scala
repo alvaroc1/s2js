@@ -6,6 +6,10 @@ object `package` {
 	def decodeURIComponent (s:String) = ""
 	def encodeURIComponent (s:String) = ""
 	def parseInt (s:String, base:Int):Int = 0
+	
+	
+	val document: Document = null
+	val window: Window = null
 }
 
 // represents a javascript object literal
@@ -30,8 +34,6 @@ class Window extends Object {
 	
 	def setTimeout (fn:()=>Unit, milliseconds:Int) {}
 }
-
-object window extends Window {}
 
 class Node {
 	var parentNode:Node = _
@@ -106,8 +108,6 @@ class Document {
 	val body:Element = null
 	def execCommand(command:String, showDefaultUI:Boolean, value:String) {}
 }
-
-object document extends Document
 
 class Range {
 	def insertNode (n:Node) {}

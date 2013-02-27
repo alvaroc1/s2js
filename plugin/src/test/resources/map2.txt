@@ -1,0 +1,86 @@
+package pages
+
+import browser._
+import goog.dom.{getElement, getElementsByTagNameAndClass, getAncestorByTagNameAndClass}
+import goog.events.{Event, BrowserEvent, EventType, KeyCodes}
+import goog.net.XhrIo
+
+import goog.ui.LabelInput
+
+object labels {
+  def main {
+    val labelsDiv = goog.dom.getElement("labels")
+    val el = goog.dom.getElement("button")
+    val button = goog.dom.getElement("new-label-button").asInstanceOf[browser.HTMLButtonElement]
+    val input = goog.dom.getElement("new-label-input")
+    
+    if (input != null) {
+      val labelInput = new goog.ui.LabelInput("Create a new label")
+      labelInput.decorate(input)
+
+      goog.events.listen(input, "keyup", {e: BrowserEvent => 
+        if (e.keyCode != goog.events.KeyCodes.ENTER) {
+          button.disabled = labelInput.getValue.length == 0
+        }
+      })
+      goog.events.listen(button, "click", {e: Event => createLabel()})
+    }
+  
+    def createLabel () = {
+      val error = goog.dom.getElement("new-label-error");
+      val name = labelInput.getValue
+        /*
+        error.innerHTML = "";
+        var name = labelInput.getValue();
+        button.disabled = true;
+        button.innerHTML = "Creating label...";
+        goog.net.XhrIo.send(createLabelUrl, function (e) {
+          button.innerHTML = "Create";
+          var res = /** @type {goog.net.XhrIo} */ (e.currentTarget).getResponseJson("");
+          if (/** @type {boolean} */ (res["success"])) {
+            labelInput.clear();
+            return loadLabels(function () {
+              return selectLabel(name);
+            });
+          } else {
+            button.disabled = false;
+            return error.innerHTML = /** @type {Array} */ (res["errors"]).join(", ");
+          }
+        }, "POST", vanity.util.buildHttpQuery({
+          "name": name
+        }));
+        */
+    }
+  }
+}
+----
+goog.provide('pages.labels');
+
+goog.require('goog.dom');
+goog.require('goog.ui.LabelInput');
+goog.require('goog.events');
+
+pages.labels.main = function () {
+  var labelsDiv = goog.dom.getElement("labels");
+  var el = goog.dom.getElement("button");
+  var button = /** @type {HTMLButtonElement} */ (goog.dom.getElement("new-label-button"));
+  var input = goog.dom.getElement("new-label-input");
+  
+  if (input != null) {
+    var labelInput = new goog.ui.LabelInput("Create a new label");
+    labelInput.decorate(input);
+    
+    goog.events.listen(input, "keyup", function (e) {
+      if (e.keyCode != goog.events.KeyCodes.ENTER) button.disabled = labelInput.getValue().length == 0;
+    });
+    
+    goog.events.listen(button, "click", function (e) {
+      return pages.labels.createLabel();
+    });
+  }
+};
+
+pages.labels.createLabel = function () {
+  var error = goog.dom.getElement("new-label-error");
+  var name = labelInput.getValue();
+};

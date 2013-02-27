@@ -26,6 +26,31 @@ object array {
 goog.provide('com.utils.array');
 com.utils.array.print = function () {};
 
+####
+object A {
+  def a = "test" != null
+}
+----
+goog.provide('A');
+
+A.a = function () {
+  return "test" != null;
+};
+
+####
+object test {
+  def a = new goog.ui.LabelInput("somestring")
+}
+----
+goog.provide('test');
+goog.require('goog.ui.LabelInput');
+
+/**
+ * @return {goog.ui.LabelInput}
+ */
+test.a = function () {
+  return new goog.ui.LabelInput("somestring");
+};
 
 ####
 package com.utils
@@ -58,3 +83,20 @@ com.utils.array.test = function (b) {
   }
 };
 
+####
+class World
+object Hello {
+  def test = new World 
+}
+----
+goog.provide('World');
+goog.provide('Hello');
+
+World = function () {};
+
+/**
+ * @return {World}
+ */
+Hello.test = function () {
+  return new World();
+};

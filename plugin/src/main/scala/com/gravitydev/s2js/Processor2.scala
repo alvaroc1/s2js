@@ -160,21 +160,88 @@ trait Processor2 { self :S2JSProcessor with Global =>
     case Literal(Constant(())) => ast.Void
     
     // literals
-    case l @ Literal(Constant(x)) => ast.Literal(x.toString, getType(l.tpe).asInstanceOf[ast.Type with ast.BuiltInType])
+    case l @ Literal(Constant(x)) => {
+      if (x == null) ast.Null 
+      else ast.Literal(x.toString, getType(l.tpe).asInstanceOf[ast.Type with ast.BuiltInType])
+    }
     
-    case b:Block => getBlock(b)
-    case a:Apply => getApply(a)
-    case i:Ident => getIdent(i)
-    case i:If => getIf(i)
-    case _ => {
-      println("test")
-      sys.error("not implemented")
+    case b:Block  => getBlock(b)
+    case a:Apply  => getApply(a)
+    case i:Ident  => getIdent(i)
+    case i:If     => getIf(i)
+    case v: ValDef => getValDef(v)
+    //case d: DefDef => getDefDef(d)
+    
+    // println
+    case Select (Select(This(q),subject), name) if q.toString == "scala" && subject.toString == "Predef" && name.toString == "println" => {
+      ast.Select(ast.Ident("_scala_", ast.Type("_scala_")), "println", ast.SelectType.Method, ast.Type("method"))
+    }
+    
+    // collapse package selections
+    //case Select(qual, "package") => getTree(qual)
+    case Select(qual, name) if name.toString == "package" => getTree(qual) // TODO: make it not rely on toString
+    case s: Select => {
+      getSelect(s)
+    }
+    case New(tpt) => {
+      ast.New(getTree(tpt))
+    }
+    
+    // cast
+    case TypeApply (Select(q,n), tpe :: Nil) if n.toString == "asInstanceOf" => {
+      ast.Cast(getTree(q), ast.Type(tpe.toString))
+    }
+    
+    // typeapply - remove it
+    case TypeApply (s, _) => getTree(s)
+    
+      
+    // TODO: this code should share some code with DefDef
+    case f @ Function (vparams, body) => {
+      // is there a better way to get a function's return type?
+      val tpe = getType(body.tpe)
+      ast.Function (
+        for (v @ ValDef(mods, name, tpt, rhs) <- vparams) yield getParam(v),
+        tpe match {
+          // case ast.Void => getTree(body) // why are the types not matching?
+          case _ => addReturn(getTree(body))
+        }
+      ) 
+    }
+    
+    case t @ This(_) if t.tpe.typeSymbol.isModuleClass => {
+      val tp = getType(t.tpe)
+      
+      val parts = tp.name.split('.').toList
+      
+      parts.tail.foldLeft(ast.Ident(parts.head, ast.Types.UnknownT): ast.Tree) {(a,b) => ast.Select(a, b, ast.SelectType.Other, ast.Types.UnknownT)}
+    }
+    
+    case x => {
+      //sys.error("not implemented for " + x.getClass)
+      
+      ast.Unknown("Not Implemented! : " + x.toString)
     }
   }
   
   def getApply (a:Apply) = {
     ast.Apply(
-      
+      getTree(a.fun),
+      a.args filter (x => !(x.toString contains "$default$")) map getTree, // TODO: clean up this hack to remove default params
+      getType(a.fun.tpe)
+    )
+  }
+  def getSelect (s: Select) = {
+    ast.Select(
+      getTree(s.qualifier),
+      s.name.toString,
+      s.symbol match {
+        case _: ModuleSymbol  => ast.SelectType.Module
+        case _: ClassSymbol   => ast.SelectType.Class 
+        case _: MethodSymbol  => ast.SelectType.Method
+        case _                => ast.SelectType.Other
+      },
+      ast.Type(s.tpe.resultType.toString.stripPrefix("java.lang."))
     )
   }
   
@@ -183,17 +250,35 @@ trait Processor2 { self :S2JSProcessor with Global =>
   }
   
   def getIdent (i:Ident) = {
-    ast.Ident(i.name.toString)
+    ast.Ident(i.name.toString, getType(i.tpe))
   }
   
   def getBlock (b:Block) = {
     ast.Block(
-      b.stats map getTree  
+      (b.stats ++ Seq(b.expr)) map getTree  
     )
+  }
+  
+  def getValDef (v: ValDef) = {
+   ast.Var(
+     v.name.toString,
+     getType(v.tpt.tpe),
+     getTree(v.rhs)
+   )
+  }
+  
+  def getSelect (symbol: Symbol) = {
+    //ast.Select(null, symbol.in)
+  }
+  
+  def getTypeName (tpe: TypeName) = {
+    println(tpe)
   }
   
   def getType (tpe:Type):ast.Type = {
     import ast.Types._
+    
+    val tSymbol = tpe.typeSymbol
     
     tpe.typeSymbol match {
       case IntClass|DoubleClass => NumberT

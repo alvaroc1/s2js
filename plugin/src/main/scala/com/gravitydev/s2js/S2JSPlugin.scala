@@ -10,15 +10,14 @@ class S2JSPlugin (val global:Global) extends Plugin {
 	val description = "Scala-to-Javascript compiler plugin"
 	
 	// options
-	var output = "."
+	var output = ""
 	
 	val components = List[PluginComponent](new S2JSComponent(global, this))
 	
 	override def processOptions (options:List[String], error:String=>Unit) {
-		for (option <- options) {
-			if (option.startsWith("output:")) output = option.substring("output:".length)
-		}
+		options find (_ startsWith "output:") foreach {out => output = out stripPrefix "output:"}
+		
 		// validate
-		if (output == "") error("You must provide an [output] option")
+		if (output == "") error("You must provide an [output] option. Like this: -P:s2js:output:/path/to/output")
 	}
 }
