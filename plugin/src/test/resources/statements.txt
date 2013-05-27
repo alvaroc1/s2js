@@ -1,0 +1,26 @@
+#### Block
+val a = 1
+val x = a == 1
+----
+var a = 1;
+var x = a == 1;
+
+#### Block 2
+val a = 1
+val x = a != 1
+----
+var a = 1; var x = a != 1;
+
+#### Cast
+val e = null.asInstanceOf[goog.events.BrowserEvent];
+println(e.keyCode);
+----
+var e = /** @type {goog.events.BrowserEvent} */ (null); 
+console.log(e.keyCode);
+
+#### Block 3
+val s = "x"; 
+s.length;
+----
+var s = "x"; 
+s.length;

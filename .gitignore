@@ -8,8 +8,8 @@ target/
 dist/
 private/
 
-/.classpath
-/.scala_dependencies
-/.project
-/s2js.jar
-/.history
+.classpath
+.scala_dependencies
+.project
+.history
+.cache

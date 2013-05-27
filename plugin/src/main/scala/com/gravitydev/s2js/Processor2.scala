@@ -195,6 +195,21 @@ trait Processor2 { self :S2JSProcessor with Global =>
     // typeapply - remove it
     case TypeApply (s, _) => getTree(s)
     
+    // this is a standalone function
+    case f @ DefDef (_,name,_,params,_,rhs) => {
+      val tpe = getType(rhs.tpe)
+      ast.Var(
+        name.toString, 
+        getType(rhs.tpe), 
+        ast.Function(
+          // TODO: this is flattening curried params, not good
+          for (v @ ValDef(_,_,_,_) <- params.flatten) yield getParam(v),
+          tpe match {
+            case _ => addReturn(getTree(rhs))
+          }
+        )
+      )
+    }
       
     // TODO: this code should share some code with DefDef
     case f @ Function (vparams, body) => {
@@ -219,7 +234,7 @@ trait Processor2 { self :S2JSProcessor with Global =>
     
     case x => {
       //sys.error("not implemented for " + x.getClass)
-      
+      println(x) 
       ast.Unknown("Not Implemented! : " + x.toString)
     }
   }
@@ -302,8 +317,9 @@ trait Processor2 { self :S2JSProcessor with Global =>
   
   def addReturn (tree:ast.Tree):ast.Tree = tree match {
     case ast.If(cond, thenExpr, elseExpr) => ast.If(cond, addReturn(thenExpr), addReturn(elseExpr))
-    /* case JsBlock(stats, expr) => JsBlock(stats, addReturn(expr))
-    case JsType.VoidT => JsType.VoidT */
+    case ast.Block(stats) => ast.Block(
+      if (stats.isEmpty) stats else stats.init ++ (if (stats.last == ast.Void) Seq() else Seq(addReturn(stats.last)))
+    )
     case x => ast.Return(tree)
   }
 }   

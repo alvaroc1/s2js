@@ -1,7 +1,7 @@
 package com.gravitydev.s2js
 
 import scala.tools.nsc.{Global, Phase}
-import scala.tools.nsc.symtab.Symbols
+//import scala.tools.nsc.symtab.Symbols
 import scala.tools.nsc.plugins.PluginComponent
 import scala.collection.mutable.ListBuffer
 import StringUtil._

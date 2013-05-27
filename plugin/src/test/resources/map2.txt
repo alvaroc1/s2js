@@ -1,3 +1,4 @@
+#### Full script
 package pages
 
 import browser._
@@ -12,7 +13,7 @@ object labels {
     val labelsDiv = goog.dom.getElement("labels")
     val el = goog.dom.getElement("button")
     val button = goog.dom.getElement("new-label-button").asInstanceOf[browser.HTMLButtonElement]
-    val input = goog.dom.getElement("new-label-input")
+    val input = goog.dom.getElement("new-label-input").asInstanceOf[browser.HTMLInputElement]
     
     if (input != null) {
       val labelInput = new goog.ui.LabelInput("Create a new label")
@@ -24,32 +25,32 @@ object labels {
         }
       })
       goog.events.listen(button, "click", {e: Event => createLabel()})
-    }
   
-    def createLabel () = {
-      val error = goog.dom.getElement("new-label-error");
-      val name = labelInput.getValue
-        /*
-        error.innerHTML = "";
-        var name = labelInput.getValue();
-        button.disabled = true;
-        button.innerHTML = "Creating label...";
-        goog.net.XhrIo.send(createLabelUrl, function (e) {
-          button.innerHTML = "Create";
-          var res = /** @type {goog.net.XhrIo} */ (e.currentTarget).getResponseJson("");
-          if (/** @type {boolean} */ (res["success"])) {
-            labelInput.clear();
-            return loadLabels(function () {
-              return selectLabel(name);
-            });
-          } else {
-            button.disabled = false;
-            return error.innerHTML = /** @type {Array} */ (res["errors"]).join(", ");
-          }
-        }, "POST", vanity.util.buildHttpQuery({
-          "name": name
-        }));
-        */
+      def createLabel () = {
+        val error = goog.dom.getElement("new-label-error");
+        val name = labelInput.getValue
+          /*
+          error.innerHTML = "";
+          var name = labelInput.getValue();
+          button.disabled = true;
+          button.innerHTML = "Creating label...";
+          goog.net.XhrIo.send(createLabelUrl, function (e) {
+            button.innerHTML = "Create";
+            var res = /** @type {goog.net.XhrIo} */ (e.currentTarget).getResponseJson("");
+            if (/** @type {boolean} */ (res["success"])) {
+              labelInput.clear();
+              return loadLabels(function () {
+                return selectLabel(name);
+              });
+            } else {
+              button.disabled = false;
+              return error.innerHTML = /** @type {Array} */ (res["errors"]).join(", ");
+            }
+          }, "POST", vanity.util.buildHttpQuery({
+            "name": name
+          }));
+          */
+      }
     }
   }
 }
@@ -64,7 +65,7 @@ pages.labels.main = function () {
   var labelsDiv = goog.dom.getElement("labels");
   var el = goog.dom.getElement("button");
   var button = /** @type {HTMLButtonElement} */ (goog.dom.getElement("new-label-button"));
-  var input = goog.dom.getElement("new-label-input");
+  var input = /** @type {HTMLInputElement} */ (goog.dom.getElement("new-label-input"));
   
   if (input != null) {
     var labelInput = new goog.ui.LabelInput("Create a new label");

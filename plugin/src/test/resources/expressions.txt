@@ -1,0 +1,19 @@
+#### Simple boolean expr
+true
+----
+true
+
+#### Equality on number literal
+1 == 1 /* optimized away */
+----
+true
+
+#### Equality on number literal 2
+1 == 2; /* optimized away */
+----
+false
+
+#### Length on string translation
+"test".length
+----
+"test".length

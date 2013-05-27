@@ -9,7 +9,7 @@ object S2JSParser {
     val settings = new Settings
 
     // must be absolute, can't use ~
-    val scalaLib = "/Users/alvarocarrasco/.sbt/boot/scala-2.9.1/lib/scala-library.jar:/Users/alvarocarrasco/workspace/s2js/target/scala-2.9.1/s2js_2.9.1-0.1-SNAPSHOT.jar"
+    val scalaLib = "/home/alvaro/.sbt/boot/scala-2.10.0/lib/scala-library.jar:/home/alvaro/workspace-juno/s2js/externs/target/scala-2.10/s2js-externs_2.10-0.1-SNAPSHOT.jar"
     settings.classpath.value = scalaLib
     
     val parser = new S2JSParser(settings)

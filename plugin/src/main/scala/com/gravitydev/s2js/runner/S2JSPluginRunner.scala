@@ -103,7 +103,7 @@ class PluginRunner(options:List[String], settings: Settings, reporter: Reporter)
 		
 		phasesSet += superAccessors					// add super accessors
 		phasesSet += pickler						// serialize symbol tables
-		phasesSet += refchecks						// perform reference and override checking, translate nested objects
+		//phasesSet += refchecks						// perform reference and override checking, translate nested objects
 		// phasesSet += devirtualize				// Desugar virtual classes
 		
 		phasesSet += uncurry						// uncurry, translate function values to anonymous classes

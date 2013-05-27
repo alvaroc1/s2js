@@ -25,7 +25,9 @@ object Printer {
       case Types.StringT => "\"" + a + "\""
       case _ => a
     }
-    case Var(id, tpe, rhs) => "var " + id + " = " + printTree(rhs) + ";\n"
+    case Var(id, tpe, rhs) => {
+      "var " + id + " = " + printTree(rhs) + ";\n"
+    }
     case Block(stats) => 
       if (stats.length > 1) 
         "{\n" + indent(stats.map(printWithSemiColon).mkString("")) + "}\n"
