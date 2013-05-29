@@ -1,0 +1,5 @@
+#### Browser
+import browser._
+alert("test")
+----
+alert("test");

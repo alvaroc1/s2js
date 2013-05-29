@@ -21,10 +21,12 @@ class BasicCompilerSpec extends FunSpec {
   
   describe("Expressions Compiler") {
     val basePath = "/home/alvaro/workspace-juno/s2js/plugin/src/test/resources"
-    val basic = parseFile(basePath + "/expressions.txt")
-    
-    parseFile(basePath + "/expressions.txt") map {case (title, sc, js) => expr.check(sc, js, title)}
-    parseFile(basePath + "/statements.txt") map {case (title, sc, js) => stmt.check(sc, js, title)}
+      
+    //parseFile(basePath + "/expressions.txt") map {case (title, sc, js) => expr.check(sc, js, title)}
+    //parseFile(basePath + "/statements.txt") map {case (title, sc, js) => stmt.check(sc, js, title)}
+    //parseFile(basePath + "/modules.txt") map {case (title, sc, js) => unit.check(sc, js, title)}
     //parseFile(basePath + "/map2.txt") map {case (title, sc, js) => unit.check(sc, js, title)}
+      
+    parseFile(basePath + "/browser.txt") map {case (title, sc, js) => stmt.check(sc, js, title)}
   }
 }

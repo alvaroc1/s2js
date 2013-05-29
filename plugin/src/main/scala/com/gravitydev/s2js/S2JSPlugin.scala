@@ -12,7 +12,7 @@ class S2JSPlugin (val global:Global) extends Plugin {
 	// options
 	var output = ""
 	
-	val components = List[PluginComponent](new S2JSComponent(global, this))
+	val components = List[PluginComponent](new Component(global, this))
 	
 	override def processOptions (options:List[String], error:String=>Unit) {
 		options find (_ startsWith "output:") foreach {out => output = out stripPrefix "output:"}

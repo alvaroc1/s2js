@@ -15,6 +15,8 @@ abstract class Compiler extends Assertions {
     val ex = cleanWhitespace(expectedPrefix + expected.stripMargin('|') + expectedSuffix)
     val res = cleanWhitespace(S2JSParser.parse(sourcePrefix + code.stripMargin('|') + sourceSuffix))
     
+    println(res)
+    
     val ex2 = ex.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
     val res2 = res.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
     
@@ -40,27 +42,6 @@ abstract class Compiler extends Assertions {
       .replace("  ", " ").replace("  ", " ").replace("  ", " ")
       .replace(" ;", ";")
   
-
-  private def matchCompiled (code:String, expected:String, filter: ast.Tree => ast.Tree) = {
-    //val ast = filter( S2JSParser.parseAST(code) )
-    
-    val ex = cleanWhitespace(expectedPrefix + expected.stripMargin('|') + expectedSuffix)
-    val res = cleanWhitespace(S2JSParser.parse(sourcePrefix + code.stripMargin('|') + sourceSuffix))
-    
-    val ex2 = ex.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
-    val res2 = res.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
-    
-    println(res2)
-    /*
-    ???
-    
-    assert(
-      res2 === ex2, 
-      "Expected: " + ex2 + ", Actual: " + res2
-    )
-    * 
-    */
-  }
 }
 
 class UnitCompiler extends Compiler {

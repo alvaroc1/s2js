@@ -1,0 +1,49 @@
+#### Module
+package pages
+
+import com.gravitydev.s2js.export
+
+object Home {
+  @export
+  def main {
+    println("Hello, World!")
+    
+  }
+}
+----
+goog.provide('pages.Home');
+
+pages.Home.main = function () {
+  console.log("Hello, World!");
+};
+
+goog.exportSymbol('pages.Home.main', pages.Home.main);
+
+#### Typical Script
+package pages
+
+import com.gravitydev.s2js.export
+import browser._
+import goog.dom.getElement
+import goog.events._
+
+object Home {
+  @export def main {
+    val button = getElement("btn");
+    listen(button, "click", (ev: BrowserEvent) => alert("clicked"))
+  }
+}
+----
+goog.provide('pages.Home');
+
+goog.require('goog.dom');
+goog.require('goog.events');
+
+pages.Home.main = function (serverUrl) {
+  var button = goog.dom.getElement('btn');
+  goog.events.listen(button, 'click', function (ev) {
+    alert('clicked');
+  });
+};
+
+goog.exportSymbol('pages.Home.main', pages.Home.main);

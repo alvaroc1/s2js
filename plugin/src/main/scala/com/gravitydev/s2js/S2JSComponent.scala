@@ -8,6 +8,7 @@ import StringUtil._
 import S2JSComponent._
 import JsAstProcessor._
 
+@deprecated("Use Component", "now")
 class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginComponent {
   import global._
   import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, AnyRefClass, FunctionClass }
@@ -58,7 +59,7 @@ class S2JSComponent (val global:Global, val plugin:S2JSPlugin) extends PluginCom
       
       // print and save
       val code = JsPrinter print processed
-      println(code)
+      //println(code)
       
       //println("======== BEFORE PROCESSING ======")
       //println(JsAstPrinter print parsedUnit)

@@ -18,7 +18,7 @@ case class SourceFile (path:String, name:String, pkg:Package) extends Branch {
   def children = Seq(pkg)
 }
 
-case class Package (name :String, units: Seq[CompilationUnit]) extends Branch {
+case class Package (name :String, units: Seq[CompilationUnit], exports: Set[String]) extends Branch {
   def children = units
 }
 

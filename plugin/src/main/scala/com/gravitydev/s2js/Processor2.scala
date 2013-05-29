@@ -1,12 +1,40 @@
 package com.gravitydev.s2js
 
 import scala.tools.nsc.{Global, Phase}
+import language.postfixOps
 
-trait Processor2 { self :S2JSProcessor with Global => 
+class Processor2 (val global: Global) {
+  import global._
+  
   import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, AnyRefClass, 
     FunctionClass, BoxedUnit_UNIT, BoxedUnitModule }
   
-  def getJsSourceFile (u:CompilationUnit) = {
+    
+  def process (unit : CompilationUnit) = {
+    import java.io._
+    
+    // get the package
+    var pkg = ""
+    unit.body match {
+      case PackageDef(pid,_) => pkg = pid.toString
+    }
+    
+    val name = "somefile"
+      
+    // transform to Js AST
+    lazy val parsedUnit = getSourceFile(unit)
+    
+    parsedUnit
+  }
+ 
+  // for debugging
+  def inspect (t:Tree):Unit = treeBrowser.browse(t)
+  
+  protected def getMethods (body:List[AnyRef]) :List[DefDef] = body.collect({ 
+    case x:DefDef if !x.symbol.isGetter && !x.symbol.isSetter && !x.symbol.isConstructor => x 
+  })
+  
+  def getSourceFile (u:CompilationUnit) = {
     // output paths
     val path = Some(u.body.symbol.fullName.replace('.', '/')) filterNot {_ == "<empty>"} getOrElse ""
     val name = u.source.file.name.stripSuffix(".scala").toLowerCase
@@ -20,8 +48,18 @@ trait Processor2 { self :S2JSProcessor with Global =>
   
   def getPackage (p:PackageDef) = ast.Package(
     Some(p.pid.toString) filterNot {_ == "<empty>"} getOrElse "_default_",
-    p.stats filterNot {_.isInstanceOf[Import]} map {getCompilationUnit(_)}
+    p.stats filterNot {_.isInstanceOf[Import]} map {getCompilationUnit(_)},
+    findExports(p)
   )
+  
+  def findExports (p: PackageDef) = {
+    p.stats collect {
+      case m @ ModuleDef(_,_, Template(_,_,body)) => body collect {
+        // annotations are in the symbol, not on mods
+        case d: DefDef if d.symbol.annotations.find(_.tpe.safeToString == "com.gravitydev.s2js.export").isDefined => p.name.toString + "." + m.name+"."+d.name
+      }
+    } reduceLeft (_ ++ _) toSet
+  }
   
   def getCompilationUnit (tree :Tree) :ast.CompilationUnit = tree match {
     case m:ModuleDef => getModule(m)
@@ -42,10 +80,11 @@ trait Processor2 { self :S2JSProcessor with Global =>
   */
     case m @ ModuleDef (mods, name, Template(parents, self, body)) => {
       val bodyContents = body.groupBy(_ match {
-        case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => "properties"
+        case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isValueParameter => "properties"
         case x:DefDef if /*!x.mods.isAccessor*/ !x.mods.isSynthetic && !x.symbol.isConstructor => "methods"
         case x:ClassDef => "classes"
         case x:ModuleDef => "modules"
+        case EmptyTree => "ignore"
         case _ => "expressions"
       })
       
@@ -174,8 +213,10 @@ trait Processor2 { self :S2JSProcessor with Global =>
     
     // println
     case Select (Select(This(q),subject), name) if q.toString == "scala" && subject.toString == "Predef" && name.toString == "println" => {
-      ast.Select(ast.Ident("_scala_", ast.Type("_scala_")), "println", ast.SelectType.Method, ast.Type("method"))
+      ast.Select(ast.Ident("console", ast.Type("_scala_")), "log", ast.SelectType.Method, ast.Type("method"))
     }
+    
+    case Select(qual, name) if name.toString == "package" && qual.toString == "browser" => ast.Ident("<toplevel>", ast.Type("_scala_"))
     
     // collapse package selections
     //case Select(qual, "package") => getTree(qual)
@@ -231,6 +272,9 @@ trait Processor2 { self :S2JSProcessor with Global =>
       
       parts.tail.foldLeft(ast.Ident(parts.head, ast.Types.UnknownT): ast.Tree) {(a,b) => ast.Select(a, b, ast.SelectType.Other, ast.Types.UnknownT)}
     }
+    
+    // ignore imports
+    case Import(_, _) => ast.Void
     
     case x => {
       //sys.error("not implemented for " + x.getClass)
@@ -315,13 +359,35 @@ trait Processor2 { self :S2JSProcessor with Global =>
     }
   }
   
-  def addReturn (tree:ast.Tree):ast.Tree = tree match {
-    case ast.If(cond, thenExpr, elseExpr) => ast.If(cond, addReturn(thenExpr), addReturn(elseExpr))
-    case ast.Block(stats) => ast.Block(
-      if (stats.isEmpty) stats else stats.init ++ (if (stats.last == ast.Void) Seq() else Seq(addReturn(stats.last)))
-    )
-    case x => ast.Return(tree)
+  def addReturn (tree:ast.Tree):ast.Tree = {
+    tree match {
+      case ast.If(cond, thenExpr, elseExpr) => ast.If(cond, addReturn(thenExpr), addReturn(elseExpr))
+      case ast.Block(stats) => ast.Block(
+        if (stats.isEmpty) stats else stats.init ++ (if (stats.last == ast.Void) Seq() else Seq(addReturn(stats.last)))
+      )
+      case x => ast.Return(tree)
+    }
   }
-}   
+}
 
-// vim: set ts=2 sw=2 et:
+object S2JSProcessor {
+  
+  // TODO figure out how to do parenthesized comparisons
+  val comparisonMap = Map(
+    "$eq$eq"      -> "==",
+    "$bang$eq"    -> "!=",
+    "$greater"    -> ">",
+    "$greater$eq" -> ">=",
+    "$less"       -> "<",
+    "$less$eq"    -> "<=",
+    "$amp$amp"    -> "&&",
+    "$bar$bar"    -> "||"
+  )
+  
+  // TODO: comparison operators should brobably be here
+  val infixOperatorMap = Map(
+    "$plus"       -> "+",
+    "$minus"      -> "-"
+  )
+}
+

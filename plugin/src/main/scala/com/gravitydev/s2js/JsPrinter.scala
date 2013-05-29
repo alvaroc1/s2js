@@ -8,6 +8,7 @@ object JsPrinter {
 	/**
 	 * Print a JS AST
 	 */
+  @deprecated("Use Printer", "now")
 	def print (tree:JsTree):String = {
 		tree match {
 			case f @ JsSourceFile(path,name,classes) => {

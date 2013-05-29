@@ -2,6 +2,7 @@ package com.gravitydev.s2js
 
 import ast._
 import StringUtil._
+import language.postfixOps
 
 object Printer {
   def print (s:SourceFile) = {
@@ -13,12 +14,14 @@ object Printer {
     
     val code = provides + reqs + pkg
     
+    println(code + "\n\n")
+    
     code
   }
   
   def printTree (t:Tree) :String = t match {
     case Void => ""
-    case Return(expr) => "return " + printTree(expr) + ";\n"
+    case Return(expr) => "return " + printTree(expr)
     case Ident(name, _) => name
     case i: If => printIf(i)
     case Literal(a,tpe) => tpe match {
@@ -26,7 +29,7 @@ object Printer {
       case _ => a
     }
     case Var(id, tpe, rhs) => {
-      "var " + id + " = " + printTree(rhs) + ";\n"
+      "var " + id + " = " + printWithSemiColon(rhs) + "\n"
     }
     case Block(stats) => 
       if (stats.length > 1) 
@@ -41,6 +44,8 @@ object Printer {
     
     // scala
     case Select(Ident("_scala_", _), "println", SelectType.Method,_) => "console.log"
+      
+    case Select(Ident("<toplevel>",_), s: String, _, _) => s
     
     // operators
     case Apply(Select(q,"$eq$eq", _,_), args, _) => printTree(q) + " == " + args.map(printTree).mkString
@@ -97,7 +102,9 @@ object Printer {
   }
   
   def printPackage (p:Package) = {
-    p.units map {printCompilationUnit(p.name, _)} mkString ""
+    val code = p.units map {printCompilationUnit(p.name, _)} mkString ""
+    
+    code + p.exports.map(x => "goog.exportSymbol('" + x + "', " + x + ");").mkString("\n", "\n", "\n")
   }
   
   def printCompilationUnit (pkg:String, cu:CompilationUnit) = cu match {
@@ -155,9 +162,9 @@ object Printer {
   
   def printFunction (fn: Function) = {
     // if body is a block, remove the braces since functions already have braces around their bodies
-    val body = stripOuterBraces(printTree(fn.body))
+    val body = stripOuterBraces(printWithSemiColon(fn.body))
     
-    "function (" + printParamList(fn.params) + ") {" + indent(body) + "}"
+    "function (" + printParamList(fn.params) + ") {\n" + indent(body) + "}"
   }
   
   def getParamDoc (node:Param) = {		
@@ -214,13 +221,12 @@ object Printer {
     node match {
       case m @ Module(name, _, _, _, _) => findProvidesInChildren(m) + name
       case c @ Class(name, _, _, _, _) => findProvidesInChildren(c) + name
-      case p @ Package("_default_", _) => findProvidesInChildren(p)
+      case p @ Package("_default_", _, _) => findProvidesInChildren(p)
       case p:Package => findProvidesInChildren(p) map {p.name + "." + _}
       case b:Branch => findProvidesInChildren(b)
       case _:Leaf => Set()
     }
   }
-  
   
   def findRequires (tree: Tree) : List[String] = {
     val reqs: List[String] = tree match {
@@ -309,10 +315,15 @@ object Printer {
       /*case Block(children) => {
         children.map(printWithSemiColon).mkString
       }*/
-      case a:Apply => printTree(a) + ";\n"
+      //case a:Apply => printTree(a) + ";\n"
       //case a:Select => printSelect(a) + ";\n"
       //case a:Ident => printIdent(a) + ";\n"
-      case x => printTree(x)
+
+      case x @ Void => printTree(x)
+      case x: Block => printTree(x)
+      case x: If => printTree(x)
+      case x: Var => printTree(x)
+      case x => printTree(x) + ";\n"
     }
   }
 }
