@@ -28,7 +28,7 @@ import goog.dom.getElement
 import goog.events._
 
 object Home {
-  @export def main {
+  @export def main (serverUrl: String) {
     val button = getElement("btn");
     listen(button, "click", (ev: BrowserEvent) => alert("clicked"))
   }
@@ -39,10 +39,13 @@ goog.provide('pages.Home');
 goog.require('goog.dom');
 goog.require('goog.events');
 
+/**
+ * @param {string} serverUrl
+ */
 pages.Home.main = function (serverUrl) {
-  var button = goog.dom.getElement('btn');
-  goog.events.listen(button, 'click', function (ev) {
-    alert('clicked');
+  var button = goog.dom.getElement("btn");
+  goog.events.listen(button, "click", function (ev) {
+    return alert("clicked");
   });
 };
 

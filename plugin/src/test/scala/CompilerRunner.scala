@@ -20,11 +20,11 @@ object S2JSParser {
     val parser = new S2JSParser(settings)
     parser.parse(code)
   }
-  
+
   def parse (code: String) = {
     val ast = parseAST(code)
     
-    print(ast)
+    print(ast) 
   }
   
   def print (tree: ast.SourceFile) = Printer.print(tree)

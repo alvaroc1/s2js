@@ -3,7 +3,7 @@ package com.gravitydev.s2js
 import scala.tools.nsc.{Global, Phase}
 import language.postfixOps
 
-class Processor2 (val global: Global) {
+class Processor2 (val global: Global) extends Extractors {
   import global._
   
   import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, AnyRefClass, 
@@ -23,6 +23,9 @@ class Processor2 (val global: Global) {
       
     // transform to Js AST
     lazy val parsedUnit = getSourceFile(unit)
+    
+    // process the AST
+    //processAST(parsedUnit)
     
     parsedUnit
   }

@@ -3,6 +3,7 @@ package com.gravitydev.s2js.ast
 import com.gravitydev.s2js.StringUtil.indent
 
 sealed trait Tree
+
 sealed trait Branch extends Tree {
   def children :Seq[Tree]
 }
@@ -24,6 +25,10 @@ case class Package (name :String, units: Seq[CompilationUnit], exports: Set[Stri
 
 case class Module (name:String, properties:Seq[Property], methods:Seq[Method], classes:Seq[Class], modules:Seq[Module]) extends CompilationUnit {
   def children = properties ++ methods ++ classes ++ modules
+}
+
+case class Array (elements: Seq[Tree]) extends Branch {
+  def children = elements
 }
 
 case class New (tpt: Tree) extends Branch {
@@ -119,10 +124,10 @@ object Types {
 	object ArrayT    extends Type("Array")     with BuiltInType
 	object ObjectT   extends Type("Object")    with BuiltInType
 	object BooleanT  extends Type("Boolean")   with BuiltInType
-	object NumberT   extends Type("Number")    with BuiltInType // i don't remember why there's Int AND Number, I think we just need Number
+	object NumberT   extends Type("Number")    with BuiltInType
 	object FunctionT extends Type("Function")  with BuiltInType
 	object UnknownT  extends Type("UNKOWN")    with BuiltInType // probably not built-in?
-	object AnyT      extends Type("Any")       with BuiltInType		// probably not built-in?
+	object AnyT      extends Type("Any")       with BuiltInType // probably not built-in?
 	object VoidT     extends Type("Void")      with BuiltInType
 	object PackageT  extends Type("Package")   with BuiltInType
 	object NullT     extends Type("Null")      with BuiltInType
