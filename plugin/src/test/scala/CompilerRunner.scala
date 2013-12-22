@@ -9,9 +9,10 @@ object S2JSParser {
     val settings = new Settings
 
     // must be absolute, can't use ~
-    val base = "/home/alvaro/workspace-juno/s2js"
+    val home = "/Users/alvarocarrasco"
+    val base = home + "/workspace/s2js"
       
-    val scalaLib = "/home/alvaro/.sbt/boot/scala-2.10.0/lib/scala-library.jar:" +
+    val scalaLib = home + "/.sbt/boot/scala-2.10.3/lib/scala-library.jar:" +
         base + "/externs/target/scala-2.10/s2js-externs_2.10-0.1-SNAPSHOT.jar:" +
         base + "/plugin/target/scala-2.10/s2js_2.10-0.1-SNAPSHOT.jar" // TODO: include s2js-runtime instead
         
@@ -34,24 +35,8 @@ object S2JSParser {
   }
 }
 
-
 class S2JSParser (settings:Settings, reporter:Reporter) extends Global(settings, reporter) {
   def this(settings:Settings) = this(settings, new ConsoleReporter(settings))
-  
-  /*
-  override protected def computeInternalPhases() {
-    phasesSet += syntaxAnalyzer
-    phasesSet += analyzer.namerFactory
-    phasesSet += analyzer.typerFactory
-    phasesSet += superAccessors            // add super accessors
-    phasesSet += pickler             // serialize symbol tables
-    phasesSet += refChecks             // perform reference and override checking, translate nested objects
-
-    for (phase <- TemplatePlugin.components(this)) {
-      phasesSet += phase
-    }
-  }
-  */
 
   def parse (code :String) = {
     

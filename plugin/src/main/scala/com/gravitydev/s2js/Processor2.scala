@@ -56,12 +56,12 @@ class Processor2 (val global: Global) extends Extractors {
   )
   
   def findExports (p: PackageDef) = {
-    p.stats collect {
+    p.stats.collect {
       case m @ ModuleDef(_,_, Template(_,_,body)) => body collect {
         // annotations are in the symbol, not on mods
         case d: DefDef if d.symbol.annotations.find(_.tpe.safeToString == "com.gravitydev.s2js.export").isDefined => p.name.toString + "." + m.name+"."+d.name
       }
-    } reduceLeft (_ ++ _) toSet
+    }.foldLeft(Seq.empty[String])(_ ++ _) toSet
   }
   
   def getCompilationUnit (tree :Tree) :ast.CompilationUnit = tree match {

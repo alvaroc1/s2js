@@ -63,7 +63,7 @@ object S2JSPluginRunner {
 		
 		// plugin options
 		val options = List(
-			"output:/home/alvaro/Desktop/s2js-output"
+			"output:/Users/alvarocarrasco/workspace/s2js/output"
 		)
 
 		val runner = new PluginRunner(options, settings)
@@ -71,9 +71,6 @@ object S2JSPluginRunner {
 		run.compile(command.files)
 	}
 }
-
-
-//import plugintemplate.{TemplateAnnotationChecker, TemplatePlugin}
 
 /** This class is a compiler that will be used for running
  *	the plugin in standalone mode.
@@ -125,7 +122,6 @@ class PluginRunner(options:List[String], settings: Settings, reporter: Reporter)
 		phasesSet += closureElimination				// optimization: get rid of uncalled closures
 		phasesSet += deadCode						// optimization: get rid of dead cpde
 		phasesSet += terminal						// The last phase in the compiler chain
-
 	}
 
 }

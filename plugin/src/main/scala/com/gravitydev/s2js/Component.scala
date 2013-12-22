@@ -55,6 +55,8 @@ class Component (val global:Global, val plugin:S2JSPlugin) extends PluginCompone
       
       lazy val parsedUnit = processor.getSourceFile(unit.asInstanceOf[processor.global.CompilationUnit])//getJsSourceFile(unit.body.asInstanceOf[PackageDef], name)
       
+      println(parsedUnit)
+      
       //val processed = JsAstProcessor process parsedUnit
       //println( JsAstPrinter print processed )
       
