@@ -51,7 +51,7 @@ class Component (val global:Global, val plugin:S2JSPlugin) extends PluginCompone
       }
       
       // transform to Js AST
-      val processor = new Processor2(global)
+      val processor = new Translator(global)
       
       lazy val parsedUnit = processor.getSourceFile(unit.asInstanceOf[processor.global.CompilationUnit])//getJsSourceFile(unit.body.asInstanceOf[PackageDef], name)
       

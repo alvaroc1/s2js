@@ -3,14 +3,14 @@ package com.gravitydev.s2js
 import scala.tools.nsc.{Global, Phase}
 import language.postfixOps
 
-class Processor2 (val global: Global) extends Extractors {
+class Translator (val global: Global) {
   import global._
   
   import definitions.{ BooleanClass, IntClass, DoubleClass, StringClass, ObjectClass, UnitClass, AnyClass, AnyRefClass, 
     FunctionClass, BoxedUnit_UNIT, BoxedUnitModule }
   
     
-  def process (unit : CompilationUnit) = {
+  def translate (unit: CompilationUnit): ast.SourceFile = {
     import java.io._
     
     // get the package
@@ -49,11 +49,17 @@ class Processor2 (val global: Global) extends Extractors {
     )
   }
   
+  private def pos (p: Tree) = new scala.util.parsing.input.Position {
+    val column = p.pos.column
+    val line = p.pos.line
+    val lineContents = p.pos.lineContent
+  }
+  
   def getPackage (p:PackageDef) = ast.Package(
     Some(p.pid.toString) filterNot {_ == "<empty>"} getOrElse "_default_",
     p.stats filterNot {_.isInstanceOf[Import]} map {getCompilationUnit(_)},
     findExports(p)
-  )
+  ).setPos(pos(p))
   
   def findExports (p: PackageDef) = {
     p.stats.collect {
@@ -71,16 +77,6 @@ class Processor2 (val global: Global) extends Extractors {
   }
 
   def getModule (m :ModuleDef) :ast.Module = m match {
-    /*
-    // App
-    case m @ ModuleDef (mods, name, Template(_ :: a :: _, self, body)) if a.symbol.toString == "trait App" => {
-      val s = a.symbol
-      
-      val b = s.toString()
-      
-      JsEmpty()
-    }
-  */
     case m @ ModuleDef (mods, name, Template(parents, self, body)) => {
       val bodyContents = body.groupBy(_ match {
         case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isValueParameter => "properties"
@@ -125,35 +121,36 @@ class Processor2 (val global: Global) extends Extractors {
     }
   }
   
-  def getClazz (c:ClassDef) = c match {
-    case ClassDef(mods, name, tparams, Template(parents, self, body)) => {
-      val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
+  def getClazz (c: ClassDef) = {
+    val ClassDef(mods, name, tparams, Template(parents, self, body)) = c
+    
+    val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
 
-      val params = primary.vparamss.flatten
+    val params = primary.vparamss.flatten
 
-    //val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
-      
-    // get properties
-    // all valdefs that have a corresponding accessor
-      val accessorNames = body.collect({ case x:DefDef if x.symbol.isGetter => x.name.toString })
-      val properties = body.collect({
-  // don't know why but valdef's name has a space at the end
-  // trim it
-      case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
-      })
+  //val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
+    
+  // get properties
+  // all valdefs that have a corresponding accessor
+    val accessorNames = body.collect({ case x:DefDef if x.symbol.isGetter => x.name.toString })
+    val properties = body.collect({
+// don't know why but valdef's name has a space at the end
+// trim it
+    case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
+    })
 
-      val methods = getMethods(body)
+    val methods = getMethods(body)
+    
+    val superTypes = parents map getTree filter {_ != ast.Select(ast.Ident("scala", ast.Type("scala")), "AnyRef", ast.SelectType.Module)}
 
-      ast.Class(
-        c.symbol.name.toString,
-    //for (s @ Select(qualifier, name) <- parents) yield JsSelect( getJsTree(qualifier), name.toString, JsSelectType.Class, JsType.UnknownT ),
-        Nil,
-    //getConstructor(c, primary),
-        getMethod(primary),
-    properties map getProperty,
-    methods map getMethod
-      )
-    }
+    ast.Class(
+      c.symbol.name.toString,
+      superTypes.headOption,
+  //getConstructor(c, primary),
+      getMethod(primary),
+  properties map getProperty,
+  methods map getMethod
+    )
   }
   
   def getProperty (prop:ValDef) = {      
@@ -184,9 +181,14 @@ class Processor2 (val global: Global) extends Extractors {
     val a = m.tpt == UnitClass
     ast.Method(
       m.name.toString,
-      for (v @ ValDef(mods, name, tpt, rhs) <- m.vparamss.flatten) yield getParam(v),
-      if (m.tpt.tpe == UnitClass.tpe) getTree(m.rhs) else addReturn(getTree(m.rhs)),
-      getType(m.tpt.tpe)
+      ast.Function(
+        for (v @ ValDef(mods, name, tpt, rhs) <- m.vparamss.flatten) yield getParam(v),
+        m.rhs match {
+          case x: Block => (x.stats map getTree) ++ Seq(ast.Return(getTree(x.expr)))
+          case x => Seq(getTree(x))
+        },
+        getType(m.tpt.tpe)
+      )
     )
   }
   
@@ -204,7 +206,11 @@ class Processor2 (val global: Global) extends Extractors {
     // literals
     case l @ Literal(Constant(x)) => {
       if (x == null) ast.Null 
-      else ast.Literal(x.toString, getType(l.tpe).asInstanceOf[ast.Type with ast.BuiltInType])
+      else {
+        val tpe = getType(l.tpe).asInstanceOf[ast.Type with ast.BuiltInType]
+        val value = if (tpe == ast.Types.StringT) "\"" + x.toString + "\"" else x.toString
+        ast.Literal(value, tpe)
+      }
     }
     
     case b:Block  => getBlock(b)
@@ -216,10 +222,10 @@ class Processor2 (val global: Global) extends Extractors {
     
     // println
     case Select (Select(This(q),subject), name) if q.toString == "scala" && subject.toString == "Predef" && name.toString == "println" => {
-      ast.Select(ast.Ident("console", ast.Type("_scala_")), "log", ast.SelectType.Method, ast.Type("method"))
+      ast.Select(ast.Ident("console", ast.Type("_scala_")), "log", ast.SelectType.Method)
     }
     
-    case Select(qual, name) if name.toString == "package" && qual.toString == "browser" => ast.Ident("<toplevel>", ast.Type("_scala_"))
+    case Select(qual, name) if name.toString == "package" && qual.toString == "browser" => ast.Ident("$toplevel", ast.Type("_scala_"))
     
     // collapse package selections
     //case Select(qual, "package") => getTree(qual)
@@ -248,9 +254,11 @@ class Processor2 (val global: Global) extends Extractors {
         ast.Function(
           // TODO: this is flattening curried params, not good
           for (v @ ValDef(_,_,_,_) <- params.flatten) yield getParam(v),
+          /*
           tpe match {
             case _ => addReturn(getTree(rhs))
-          }
+          }*/ Nil,
+          tpe
         )
       )
     }
@@ -261,10 +269,11 @@ class Processor2 (val global: Global) extends Extractors {
       val tpe = getType(body.tpe)
       ast.Function (
         for (v @ ValDef(mods, name, tpt, rhs) <- vparams) yield getParam(v),
-        tpe match {
-          // case ast.Void => getTree(body) // why are the types not matching?
-          case _ => addReturn(getTree(body))
-        }
+        f.body match {
+          case x:Block => (x.stats map getTree) ++ Seq(ast.Return(getTree(x.expr)))
+          case x => Seq(getTree(x))
+        },
+        tpe
       ) 
     }
     
@@ -273,11 +282,15 @@ class Processor2 (val global: Global) extends Extractors {
       
       val parts = tp.name.split('.').toList
       
-      parts.tail.foldLeft(ast.Ident(parts.head, ast.Types.UnknownT): ast.Tree) {(a,b) => ast.Select(a, b, ast.SelectType.Other, ast.Types.UnknownT)}
+      parts.tail.foldLeft(ast.Ident(parts.head, ast.Type("_scala_")): ast.Tree) {(a,b) => ast.Select(a, b, ast.SelectType.Module)}
     }
     
     // ignore imports
     case Import(_, _) => ast.Void
+    
+    case Super(qual, _) => ast.Super(getTree(qual))
+    
+    case This(qual) => ast.This
     
     case x => {
       //sys.error("not implemented for " + x.getClass)
@@ -290,7 +303,7 @@ class Processor2 (val global: Global) extends Extractors {
     ast.Apply(
       getTree(a.fun),
       a.args filter (x => !(x.toString contains "$default$")) map getTree, // TODO: clean up this hack to remove default params
-      getType(a.fun.tpe)
+      getType(a.tpe)
     )
   }
   def getSelect (s: Select) = {
@@ -301,9 +314,8 @@ class Processor2 (val global: Global) extends Extractors {
         case _: ModuleSymbol  => ast.SelectType.Module
         case _: ClassSymbol   => ast.SelectType.Class 
         case _: MethodSymbol  => ast.SelectType.Method
-        case _                => ast.SelectType.Other
-      },
-      ast.Type(s.tpe.resultType.toString.stripPrefix("java.lang."))
+        case _                => ast.SelectType.Module
+      }
     )
   }
   

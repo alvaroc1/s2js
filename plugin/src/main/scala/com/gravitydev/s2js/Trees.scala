@@ -104,4 +104,3 @@ object JsSelectType extends Enumeration {
 	type JsSelectType = Value
 	val Method, ParamAccessor, Prop, Module, Class, Package, Other = Value
 }
-

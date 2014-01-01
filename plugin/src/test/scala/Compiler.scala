@@ -1,31 +1,46 @@
-import com.gravitydev.s2js.ast
+import com.gravitydev.s2js.{ast, Printer, Processor}
 import org.scalatest.Assertions
+import scala.tools.nsc.Settings
+import scala.tools.nsc.Global
 
 abstract class Compiler extends Assertions {
+  val settings = new Settings
+
+  // must be absolute, can't use ~
+  val home = "/Users/alvarocarrasco"
+  val base = home + "/workspace/s2js"
     
-  def check (code: String, expected: String, message: String) = {
+  val scalaLib = home + "/.sbt/boot/scala-2.10.3/lib/scala-library.jar:" +
+      base + "/externs/target/scala-2.10/s2js-externs_2.10-0.1-SNAPSHOT.jar:" +
+      base + "/api/target/scala-2.10/s2js-api_2.10-0.1-SNAPSHOT.jar"
+        
+    settings.classpath.value = scalaLib
+    
+  lazy val parser = new S2JSParser(settings, process = process)
+    
+  def checkCode (code: String, expected: String, message: String) = {
+    println("===== CODE =====")
+    println(code)
+    
+    val ast = parser.parse(processSource((code.stripMargin('|'))))
+    
     val ex = cleanWhitespace(processExpected(expected.stripMargin('|')))
-    val res = cleanWhitespace(S2JSParser.parse(processSource((code.stripMargin('|')))))
+    val s = Printer.print(ast)
+    
+    println("==== JS ====")
+    println(s)
+    val res = cleanWhitespace(s)
     
     assert(res === ex, message + ", Expected: " + ex + ", Actual: " + res)
-
-    //val ast = filter( S2JSParser.parseAST(code) )
-    
-    /*
-    val ex = cleanWhitespace(expectedPrefix + expected.stripMargin('|') + expectedSuffix)
-    val res = cleanWhitespace(S2JSParser.parse(sourcePrefix + code.stripMargin('|') + sourceSuffix))
-    
-    println(res)
-    
-    val ex2 = ex.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
-    val res2 = res.stripPrefix(expectedPrefix).stripSuffix(expectedSuffix)
+  }
+  
+  def checkAST (code: String, expected: ast.Tree, message: String) = {
+    val res = parser.parse(processSource((code.stripMargin('|'))))
     
     assert(
-      res2 === ex2, 
-      message + ". Expected: " + ex2 + ", Actual: " + res2
-    )
-    * 
-    */
+      res.pkg.units.head.asInstanceOf[ast.Module].methods
+        .head.fun.stats
+        .head.asInstanceOf[ast.Var].rhs == expected, message + ", Expected: " + expected + ", Actual: " + res)
   }
   
   def sourcePrefix: String
@@ -37,6 +52,19 @@ abstract class Compiler extends Assertions {
   def processSource (code: String) = sourcePrefix + code + sourceSuffix
     
   def processExpected (expected: String) = expectedPrefix + expected + expectedSuffix
+  
+  def trimTreeForPrinting (tree: ast.SourceFile): ast.Tree
+  
+  def process (tree: ast.SourceFile): ast.SourceFile = {
+    println("======= BEFORE =======")
+    println(trimTreeForPrinting(tree))
+    val res = Processor(tree)
+    
+    println("======= AFTER ========")
+    println(trimTreeForPrinting(res))
+    
+    res
+  }
 
   // TODO: I know this is horrible... to lazy to fix
   private def cleanWhitespace (s:String) = s.stripMargin('|').trim
@@ -46,23 +74,35 @@ abstract class Compiler extends Assertions {
   
 }
 
-class UnitCompiler extends Compiler {
+object CompilationUnitCompiler extends Compiler {
   val sourcePrefix = ""
   val sourceSuffix = ""
   val expectedPrefix = ""
   val expectedSuffix = ""
+    
+  def trimTreeForPrinting (tree: ast.SourceFile) = {
+    tree.pkg
+  }
 }
 
-class ExpressionCompiler extends Compiler {
+object ExpressionCompiler extends Compiler {
   val sourcePrefix = "object Z { def z = { val x = "
   val sourceSuffix = " } }"
   val expectedPrefix = "goog.provide('Z'); Z.z = function () { var x = "
   val expectedSuffix = "; };"
+    
+  def trimTreeForPrinting (tree: ast.SourceFile) = {
+    tree.pkg.units.head.asInstanceOf[ast.Module].methods.head.fun.stats.head.asInstanceOf[ast.Var].rhs
+  }
 }
 
-class StatementCompiler extends Compiler {
+object StatementCompiler extends Compiler {
   val sourcePrefix = "object Z { def z = { "
   val sourceSuffix = "; () } }"
   val expectedPrefix = "goog.provide('Z'); Z.z = function () { "
   val expectedSuffix = " };"
+    
+  def trimTreeForPrinting (tree: ast.SourceFile) = {
+    tree.pkg.units.head.asInstanceOf[ast.Module].methods.head
+  }
 }

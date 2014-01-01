@@ -4,10 +4,8 @@ package pages
 import com.gravitydev.s2js.export
 
 object Home {
-  @export
-  def main {
+  @export def main {
     println("Hello, World!")
-    
   }
 }
 ----
@@ -45,8 +43,69 @@ goog.require('goog.events');
 pages.Home.main = function (serverUrl) {
   var button = goog.dom.getElement("btn");
   goog.events.listen(button, "click", function (ev) {
-    return alert("clicked");
+    alert("clicked");
   });
 };
 
 goog.exportSymbol('pages.Home.main', pages.Home.main);
+
+#### Map
+object A {
+  def main {
+    List(1,2,3) foreach println
+  }
+}
+----
+goog.provide('A');
+
+goog.require('goog.array');
+
+A.main = function () {
+  goog.array.forEach([1, 2, 3], function (x) {
+    console.log(x);
+  });
+};
+
+#### 
+package devstack
+
+import goog.ui.Component
+
+class NodeContainer extends Component
+----
+goog.provide('devstack.NodeContainer');
+
+goog.require('goog.ui.Component');
+
+/**
+ * @constructor
+ * @extends {goog.ui.Component}
+ */
+devstack.NodeContainer = function () {
+  goog.ui.Component.call(this);
+};
+goog.inherits(devstack.NodeContainer, goog.ui.Component);
+
+####
+class Node (name: String)
+class Cursor extends Node("cursor")
+----
+goog.provide('Node');
+goog.provide('Cursor');
+
+/**
+ * @constructor
+ * @param {string} name
+ */
+Node = function (name) {
+
+};
+
+/**
+ * @constructor
+ * @extends {Node}
+ */
+Cursor = function () {
+  Node.call(this, "cursor");
+};
+goog.inherits(Cursor, Node);

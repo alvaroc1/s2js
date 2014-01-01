@@ -1,0 +1,4 @@
+####
+null.asInstanceOf[browser.HTMLButtonElement].disabled = false
+----
+/** @type {HTMLButtonElement} */(null).disabled = false;

@@ -15,8 +15,13 @@ var a = 1; var x = a != 1;
 val e = null.asInstanceOf[goog.events.BrowserEvent];
 println(e.keyCode);
 ----
-var e = /** @type {goog.events.BrowserEvent} */ (null); 
+var e = /** @type {goog.events.BrowserEvent} */(null); 
 console.log(e.keyCode);
+
+#### Alert
+browser.alert("test")
+----
+alert("test");
 
 #### Block 3
 val s = "x"; 

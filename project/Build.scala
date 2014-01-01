@@ -16,9 +16,12 @@ object S2JSBuild extends Build {
         "com.github.scala-incubator.io" %% "scala-io-core" % "0.4.2" % "test",
         "com.github.scala-incubator.io" %% "scala-io-file" % "0.4.2" % "test",
         "com.googlecode.kiama" %% "kiama" % "1.5.1"
-      )	  
+      )
     )
     .dependsOn(externs)
+
+  lazy val api = Project(id = "s2js-api", base = file("api"))
+    .settings(commonSettings:_*)
 
   lazy val externs = Project(id = "s2js-externs", base = file("externs"))
     .settings(commonSettings:_*)

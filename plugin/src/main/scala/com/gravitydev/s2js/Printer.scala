@@ -3,80 +3,167 @@ package com.gravitydev.s2js
 import ast._
 import StringUtil._
 import org.kiama.output.PrettyPrinter
+import org.kiama.rewriting.Rewriter
+import scala.collection.mutable.ListBuffer
 import language.postfixOps
 
 object Printer extends PrettyPrinter {
+  import Inspector.{findProvides, findRequires}
   
   def show (t: Tree): Doc = {
     t match {
       case SourceFile(path,name,pkg) => {
         val provides = findProvides(pkg).toSeq
-        ssep(provides map (x => "goog.provide('" <> x <> "');"), line) <> line <>
+        val requires = findRequires(pkg).toSeq filterNot (provides contains _)
+        
+        ssep(provides map (x => "goog.provide('" <> x <> "');"), line) <> line <> line <>
+        (if (requires.nonEmpty) ssep(requires map (x => "goog.require('" <> x <> "');"), line) <> line <> line else "") <> 
         show(pkg)
       }
-      case Literal(v,_)               => v
-      case Var(name, tpe, rhs)        => "var" <+> name <+> "=" <+> show(rhs) <> semi
-      case Array(elems)               => "[" <> nest( ssep(elems map show, ", ") ) <> "]"
       case pkg @ Package(name,units,exports) => {
         ssep(units map (printCompilationUnit(pkg,_)), line) <> line <>
-        ssep(exports.toSeq map (x => "goog.exportSymbol(\"" <> x <> "\");"), line)
+        ssep(exports.toSeq map (x => "goog.exportSymbol('" <> x <> "', " <> x <> ");"), line)
       }
-      case Class(name,supers,constructors,props,methods) => "class"
-      case Void                       => ""
-      case Return(expr)               => "return" <+> show(expr)
+      case Null => "null"
+      case Literal(v,_)               => v
+      
+      //case Void                       => ""
+      
+      // selection
+      case Select(qual, name, stpe) => show(qual) <> "." <> name  
+      
       case Ident(name, _)             => name
-      case If (cond, thenp, elsep)    => {
-        "if" <+> parens( show(cond) ) <+> nest( show(thenp) ) <+> "else" <+> nest( show(elsep) )
-      }
+      
+      case x => "UNKNOWN: " + x.toString
     }
   }
   
-  def print (s: Tree) = pretty(show(s))
+  private def bracesIfBlock (tree: Tree)(treeDoc: Doc) = tree match {
+    case _:Block => braces( nest( line <> treeDoc, 2 )  <> line )
+    case _ => nest( treeDoc, 2 )
+  }
+  
+  private def maybeSemi (tree: Tree)(treeDoc: Doc) = tree match {
+    //case x:If => treeDoc // don't put semi-colons on IF
+    case x => treeDoc <> semi
+  }
+  
+  def showExpr (pkg: Package, unit: CompilationUnit, method: Method, expr: Tree): Doc = {
+    def showInner (t: Tree) = showExpr(pkg, unit, method, t)
+    
+    expr match {
+      case Var(name, tpe, rhs)        => "var" <+> name <+> "=" <+> showInner(rhs)
+      case Array(elems)               => "[" <> nest( ssep(elems map showInner, ", ") ) <> "]"
+      case Return(expr)               => "return" <+> showInner(expr)
+      
+      case If (cond, thenp, elsep)    => {
+        // if else *returns* void, then the whole thing is void
+        val (thenxp, elsexp) = (thenp, elsep) match {
+          case (Return(x), Return(Void)) => x -> Void
+          case _ => thenp -> elsep
+        }
+        
+        "if" <+> parens( showInner(cond) ) <+> 
+          bracesIfBlock(thenxp)( showInner( thenxp) ) <>
+          (if (elsexp != Void) "" <+> "else" <+> bracesIfBlock(elsexp)( showInner(elsexp) ) else "")
+      }
+      
+      case Cast (subject, tpe) => {
+        "/** @type {" <> printTypeForAnnotation(tpe) <> "} */(" <> showInner(subject) <> ")"
+      }
+      case InfixOp(operand1, operand2, operator) => showInner(operand1) <+> operator <+> showInner(operand2)
+      
+      case UnaryOp(operand, op, Prefix) => "!" <> showInner(operand)
+        
+      // block
+      case Block(stats) => {
+        ssep(stats map {x => maybeSemi(x)(showInner(x))}, line)
+      }
+      
+      // super constructor application
+      case Apply(Select(Super(This), "<init>", SelectType.Method), args, tpe) => {
+        print(unit.asInstanceOf[Class].sup.get) <> "." <> "call" <> parens( ssep(Seq("this": Doc) ++ (args map showInner), ", ") )
+      }
+      
+      // application
+      case Apply(fun, params, tpe) => {
+        showInner(fun) <> parens( ssep(params map showInner, ", ") )
+      }
+      
+      // assign
+      case Assign(sel, rhs) => {
+        showInner(sel) <+> "=" <+> showInner(rhs)
+      }
+      
+      // prop ref
+      case PropRef(sel, _) => showInner(sel)
+      
+      case Select(New(sel), "<init>", SelectType.Method) => {
+        "new" <+> showInner(sel)
+      }
+      
+      // top-level selects
+      case Select(Ident("$toplevel", Type("_scala_", Nil)), name, _) => name
+      
+      // selection
+      case Select(qual, name, stpe) => showInner(qual) <> "." <> name  
+      
+      case fn @ Function(params, body, _) => printFunction(pkg, unit, method, fn)
+      
+      case x => show(expr)
+    }
+  }
+  
+  def print (s: Tree) = pretty(show(s)).trim
   
   private def printCompilationUnit (pkg: Package, unit: CompilationUnit) = {
-    (Option(pkg.name) filter (_ != "_default_") map(_+".") getOrElse "") <> (unit match {
-      case c: Class => show(c)
+    unit match {
+      case c: Class => printClass(pkg, c)
       case m: Module => printModule(pkg, m)
-    })
+    }
+  }
+    
+  private def printClass (pkg: Package, m:Class) = {
+    printConstructor(pkg, m, m.constructor) <> 
+    (m.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> m.name <> ", " <> print(x) <> ");\n") getOrElse "")
   }
 
   private def printModule (pkg: Package, mod: Module) = {
     val Module(name,props,methods,classes,modules) = mod
     
-    //name <+> "=" <+> "{}" <> semi
+    val prefix = packagePrefix(pkg)
+    
     ssep(methods map (printMethod(pkg, mod, _)), line)
   }
-    
-  private def printMethod (pkg: Package, owner: CompilationUnit, m:Method) = {
+  
+  private def printConstructor (pkg: Package, unit: Class, m:Method) = {
     // jsdoc
-    val returnDoc = if (m.ret != Types.VoidT) Seq("@return {"+printType(m.ret)+"}") else Seq()
-    val jsdoc = doc( (m.params map getParamDoc) ++ returnDoc )
+    val jsdoc = doc {
+      Seq(
+        "@constructor"
+      ) ++ unit.sup.map(x => "@extends {" + print(x) + "}").toList ++
+      (m.fun.params map getParamDoc)
+    }
     
-    val lhs = memberPrefix(pkg, owner) <> m.name
+    val lhs = packagePrefix(pkg) <> unit.name
     
-    // if body is a block, remove the braces since functions already have braces around their bodies
-    val body = "body" //stripOuterBraces(printTree(m.body))
+    val rhs = " = " <> printFunction(pkg, unit, m, m.fun) <> semi <> line
     
-    val rhs = " = " <> printFunction(Function(m.params, m.body)) <> semi <> line
+    jsdoc <> lhs <> rhs
+  }
+    
+  private def printMethod (pkg: Package, unit: CompilationUnit, m:Method, isConstructor: Boolean = false) = {
+    // jsdoc
+    val returnDoc = if (m.fun.ret != Types.VoidT) Seq("@return {"+printType(m.fun.ret)+"}") else Seq()
+    val jsdoc = doc( (m.fun.params map getParamDoc) ++ returnDoc )
+    
+    val lhs = if (isConstructor) packagePrefix(pkg) <> unit.name else memberPrefix(pkg, unit) <> m.name
+    
+    val rhs = " = " <> printFunction(pkg, unit, m, m.fun) <> semi <> line
     
     jsdoc <> lhs <> rhs
   }
 
-  private def findProvides (node :Tree) :Set[String] = {
-    def findProvidesInChildren (b:Product) = {
-      ((b.productIterator filter (_.isInstanceOf[Tree])) ++
-      (b.productIterator filter (_.isInstanceOf[Seq[_]]) flatMap (_.asInstanceOf[Seq[_]] filter (_.isInstanceOf[Tree]) map (_.asInstanceOf[Tree]))) map 
-          (_.asInstanceOf[Tree]) map {findProvides _}).foldLeft(Set[String]()){_++_}
-    }
-    
-    node match {
-      case m @ Module(name, _, _, _, _) => findProvidesInChildren(m) + name
-      case c @ Class(name, _, _, _, _) => findProvidesInChildren(c) + name
-      case p @ Package("_default_", _, _) => findProvidesInChildren(p)
-      case p:Package => findProvidesInChildren(p) map {p.name + "." + _}
-      case b:Product => findProvidesInChildren(b)
-    }
-  }
   
   private def printType (t:Type) = t match {
     case Types.StringT  => "string"
@@ -84,7 +171,7 @@ object Printer extends PrettyPrinter {
     case Types.NumberT  => "number"
     case Types.AnyT     => "Object"
     case Types.ArrayT   => "Array"
-    case Types.UnknownT => "UNKNOWN"
+    //case Types.UnknownT => "UNKNOWN"
     case Type(name, _)  => name.stripPrefix("browser.")
   }
   
@@ -117,7 +204,7 @@ object Printer extends PrettyPrinter {
       case Class(name,_,_,_,_) => name <> "." <> "prototype"
     }) <> "."
   
-  def printTypeForAnnotation (node:Tree) = {
+  def printTypeForAnnotation (node: Type) = {
     import Types._
     node match {
       case FunctionT => "Function"
@@ -133,14 +220,11 @@ object Printer extends PrettyPrinter {
     }
   }
   
-  private def printFunction (fn: Function) = {
-    // if body is a block, remove the braces since functions already have braces around their bodies
-    //val body = stripOuterBraces(printWithSemiColon(fn.body))
-    
-    "function (" <> printParamList(fn.params) <> ")" <+> "{" <> line <> (fn.body match {
-      case b: Block => nest(ssep(b.stats map show, semi))
-      case x => nest(show(x))
-    }) <> "}"
+  private def printFunction (pkg: Package, unit: CompilationUnit, method: Method, fn: Function) = {
+    "function (" <> printParamList(fn.params) <> ")" <+> "{" <> nest(
+      line <> ssep(fn.stats map (x => maybeSemi(x)(showExpr(pkg, unit, method, x))), line),
+      2
+    ) <> line <> "}"
   }
   
   /**
@@ -154,6 +238,7 @@ object Printer extends PrettyPrinter {
   private def printParamList (params:Seq[Param]) = {    
     params map getParamName mkString ", "
   }
+  
 }
 
 object TreePrinter {
@@ -243,47 +328,19 @@ object TreePrinter {
       }
     }
     
-    def printPackage (p:Package) = {
-      val code = p.units map {printCompilationUnit(p.name, _)} mkString ""
-      
-      code + p.exports.map(x => "goog.exportSymbol('" + x + "', " + x + ");").mkString("\n", "\n", "\n")
-    }
-    
-    def printCompilationUnit (pkg:String, cu:CompilationUnit) = cu match {
-      case m:Module => printModule(pkg, m)
-      case c:Class => printClass(pkg, c)
-    }
-    
-    def printClass (pkg:String, m:Class) = {
-      val lhs = (if (pkg != "_default_") pkg+"." else "") + m.name
-      
-      lhs + " = function () {};\n"
-    }
-    
-    def printModule (pkg:String, m:Module) = {
-      val prefix = (if (pkg != "_default_") pkg+"." else "") + m.name
-      
-      // methods
-      val methods = ""//m.methods map {printMethod(prefix, _, false)} mkString "\n"
-      
-      methods
-    }
-    
     def printType (t:Type) = t match {
       case Types.StringT  => "string"
       case Types.BooleanT => "boolean"
       case Types.NumberT  => "number"
       case Types.AnyT     => "Object"
       case Types.ArrayT   => "Array"
-      case Types.UnknownT => "UNKNOWN"
+      //case Types.UnknownT => "UNKNOWN"
       case Type(name, _)  => name.stripPrefix("browser.")
     }
 
 
     
     /*
-
-    
     def findRequires (tree: Tree) : List[String] = {
       val reqs: List[String] = tree match {
         // instantiations

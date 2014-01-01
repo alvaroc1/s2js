@@ -16,7 +16,7 @@ object JsAstProcessor {
 		
 	// this must be performed before anything else
 	def prepare (tree:JsTree) :JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, prepare).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		tree match {
 			// remove packages
@@ -72,7 +72,7 @@ object JsAstProcessor {
 	
 	// must be done before removing type applications
 	def transformMapsAndLists (tree:JsTree):JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, transformMapsAndLists).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		tree match {
 			
@@ -166,7 +166,7 @@ object JsAstProcessor {
 	
 	// this must be performed before removing default params invocation
 	def removeTypeApplications (tree:JsTree):JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, removeTypeApplications).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		tree match {
 			// strange setup here: the inner apply's selector goes with the outer apply's paras
@@ -182,7 +182,7 @@ object JsAstProcessor {
 	}
 	
 	def transformTernaries (tree:JsTree):JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, transformTernaries).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		def jsIfToTernary (jsif:JsIf) = JsTernary(
 			jsif.cond, 
@@ -238,7 +238,7 @@ object JsAstProcessor {
 	}
 	
 	def clean (tree:JsTree):JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, clean).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		tree match {				
 	
@@ -329,7 +329,7 @@ object JsAstProcessor {
 	}
 	
 	def transform (tree:JsTree):JsTree = {
-		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, transform).asInstanceOf[T]
+		def visit[T <: JsTree] (t:JsTree):T = ???
 		
 		tree match {
 			// XML
@@ -502,14 +502,18 @@ object JsAstProcessor {
 			}
 			
 			// JsThis on modules need to be fully qualified
+			/*
 			case m @ JsModule (owner, name, body, props, methods, classes, modules) => visit {
 				JsModule(owner, name, body, props.map(fullyQualifyJsThis(_,m).asInstanceOf[JsProperty]), methods.map(fullyQualifyJsThis(_, m).asInstanceOf[JsMethod]), classes, modules)
 			}
+			* 
+			*/
 			
 			case x => visit[JsTree]{x}
 		}
 	}
 	
+	/*
 	def fullyQualifyJsThis (tree:JsTree, module:JsModule):JsTree = {
 		def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, (t:JsTree) => fullyQualifyJsThis(t, module)).asInstanceOf[T]
 		
@@ -523,4 +527,6 @@ object JsAstProcessor {
 			case x => visit[JsTree]{x}
 		}
 	}
+	* 
+	*/
 }

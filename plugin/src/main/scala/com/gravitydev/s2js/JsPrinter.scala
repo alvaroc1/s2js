@@ -13,7 +13,7 @@ object JsPrinter {
 		tree match {
 			case f @ JsSourceFile(path,name,classes) => {
 				// provides
-				val p = findProvides(tree).toSet
+				val p: Set[String] = ??? //findProvides(tree).toSet
 				val provides = p.map( (id:String) => "goog.provide('"+id+"');\n" ).mkString("") + "\n"
 				
 				// requires
@@ -474,40 +474,11 @@ object JsPrinter {
 		}
 	}
 	
-	def findProvides (tree : JsTree) : List[String] = {
-		val l = new ListBuffer[String]
-		
-		def find (tree:JsTree) : JsTree = {
-			tree match {
-				case JsClass(owner, name, _,_,_,_) => {
-					l.append(owner.name+"."+name)
-					
-					JsAstUtil visitAst ( tree, find )
-				}
-				
-				case JsModule(owner, name, _, _,_,_,_) => {
-					l.append(owner.name+"."+name)
-					
-					JsAstUtil visitAst ( tree, find )
-				}
-				
-				// check everything else
-				case _ => {
-					JsAstUtil visitAst ( tree, find )
-					()
-				}
-			}
-			tree
-		}
-		find(tree)
-		l.toList
-	}
-	
 	def findRequires (tree : JsTree) : List[String] = {			
 		val l = new ListBuffer[String]
 		
 		def find (tree:JsTree) : JsTree = {		
-			def visit[T <: JsTree] (t:JsTree):T = JsAstUtil.visitAst(t, find).asInstanceOf[T]
+			def visit[T <: JsTree] (t:JsTree):T = ???
 				
 			tree match {				
 				// ignore members

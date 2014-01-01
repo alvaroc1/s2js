@@ -3,6 +3,26 @@ true
 ----
 true
 
+#### String
+"some string"
+----
+"some string"
+
+#### Not
+!true
+----
+!true
+
+#### 
+println("check")
+----
+console.log("check")
+
+#### Alert
+browser.alert("test");
+----
+alert("test")
+
 #### Equality on number literal
 1 == 1 /* optimized away */
 ----
