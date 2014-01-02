@@ -44,7 +44,8 @@ object Printer extends PrettyPrinter {
   }
   
   private def maybeSemi (tree: Tree)(treeDoc: Doc) = tree match {
-    //case x:If => treeDoc // don't put semi-colons on IF
+    case x:If => treeDoc    //no semi on IF
+    case x:Block => treeDoc // no semi on Block
     case x => treeDoc <> semi
   }
   
@@ -64,8 +65,8 @@ object Printer extends PrettyPrinter {
         }
         
         "if" <+> parens( showInner(cond) ) <+> 
-          bracesIfBlock(thenxp)( showInner( thenxp) ) <>
-          (if (elsexp != Void) "" <+> "else" <+> bracesIfBlock(elsexp)( showInner(elsexp) ) else "")
+          maybeSemi(thenxp)(bracesIfBlock(thenxp)( showInner( thenxp) )) <>
+          (if (elsexp != Void) "" <+> "else" <+> maybeSemi(elsexp)(bracesIfBlock(elsexp)( showInner(elsexp) )) else "")
       }
       
       case Cast (subject, tpe) => {
@@ -221,10 +222,11 @@ object Printer extends PrettyPrinter {
   }
   
   private def printFunction (pkg: Package, unit: CompilationUnit, method: Method, fn: Function) = {
-    "function (" <> printParamList(fn.params) <> ")" <+> "{" <> nest(
+    val res = "function (" <> printParamList(fn.params) <> ")" <+> "{" <> nest(
       line <> ssep(fn.stats map (x => maybeSemi(x)(showExpr(pkg, unit, method, x))), line),
       2
     ) <> line <> "}"
+    res
   }
   
   /**

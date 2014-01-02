@@ -12,6 +12,7 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     topdown(basicReplacements) <* 
     topdown(collectionRewrites) <*
     topdown(operators) <* 
+    topdown(cleanUpBlocks) <*
     removeSuperCalls
   )(ast).map(_.asInstanceOf[T]).get
 
@@ -19,6 +20,7 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
   val basicReplacements = rule {
     // remove void returns
     //case Function(params, Return(Void)) => Function(params, Block(Nil))
+        
     
     // clean up function
     case Function (params, stats, tpe) if stats.nonEmpty => {
@@ -73,12 +75,22 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     }
   }
   
-  val collectionRewrites = rule {
-    // List foreach
-    case a @ Apply(Select(arr @ Array(_), "foreach", SelectType.Method), args, Types.VoidT) => {
-      Apply(Select(Select(Ident("goog", Types.PackageT), "array", SelectType.Module), "forEach", SelectType.Method), Seq(arr) ++ args, Types.VoidT)
+  val cleanUpBlocks = attempt {
+    rule {
+      // block in function
+      case Function (params, List(Block(stats)), tpe) => {
+        Function(params, stats, tpe)
+      }
     }
-    case x => x
+  }
+  
+  val collectionRewrites = attempt {
+    rule {
+      // List foreach
+      case a @ Apply(Select(arr @ Array(_), "foreach", SelectType.Method), args, Types.VoidT) => {
+        Apply(Select(Select(Ident("goog", Types.PackageT), "array", SelectType.Module), "forEach", SelectType.Method), Seq(arr) ++ args, Types.VoidT)
+      }
+    }
   }
   
   val operators = rule {

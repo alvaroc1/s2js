@@ -28,8 +28,8 @@ object labels {
 
       def createLabel () = {
         val error = goog.dom.getElement("new-label-error");
-          /*
         val name = labelInput.getValue
+        /*
         error.innerHTML = ""
           var name = labelInput.getValue();
           button.disabled = true;
