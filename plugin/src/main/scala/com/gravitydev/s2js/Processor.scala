@@ -30,6 +30,7 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
         last match {
           case Return(x) if tpe == Types.VoidT => x
           case Return(Void) => Void
+          case x: Typed if tpe != Types.VoidT => Return(x)
           case x => x
         }
       )
@@ -55,8 +56,8 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     case Apply(Select(l @ Literal(value, Types.StringT), "length", SelectType.Method), _, _) => {
       PropRef(Select(l, "length", SelectType.Prop), Types.NumberT)
     }
-    case Apply(Select(Apply(s @ Select(_,_,_),_,_),"length",SelectType.Method), _, Types.StringT) => {
-      PropRef(Select(s, "length", SelectType.Prop), Types.NumberT)
+    case Apply(Select(a @ Apply(Select(_,_,_),_,_),"length",SelectType.Method), _, Types.NumberT) => {
+      PropRef(Select(a, "length", SelectType.Prop), Types.NumberT)
     }
     case Apply(Select(i @ Ident(_, Types.StringT), "length", SelectType.Method), _, _) => {
       PropRef(Select(i, "length", SelectType.Prop), Types.NumberT)

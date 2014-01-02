@@ -1,4 +1,6 @@
 ####
-null.asInstanceOf[browser.HTMLButtonElement].disabled = false
+def check () = 1
 ----
-/** @type {HTMLButtonElement} */(null).disabled = false;
+var check = function () {
+  return 1;
+};

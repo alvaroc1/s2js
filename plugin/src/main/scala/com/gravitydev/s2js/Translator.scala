@@ -153,7 +153,7 @@ class Translator (val global: Global) {
     )
   }
   
-  def getProperty (prop:ValDef) = {      
+  def getProperty (prop:ValDef) = {  
     /*
     JsProperty(
       getType(prop.symbol.owner),
@@ -254,10 +254,7 @@ class Translator (val global: Global) {
         ast.Function(
           // TODO: this is flattening curried params, not good
           for (v @ ValDef(_,_,_,_) <- params.flatten) yield getParam(v),
-          /*
-          tpe match {
-            case _ => addReturn(getTree(rhs))
-          }*/ Nil,
+          Seq(getTree(rhs)),
           tpe
         )
       )

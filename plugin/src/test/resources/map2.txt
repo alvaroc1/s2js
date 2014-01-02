@@ -16,7 +16,6 @@ object labels {
     val input = goog.dom.getElement("new-label-input").asInstanceOf[browser.HTMLInputElement]
     
     if (input != null) {
-      /*
       val labelInput = new goog.ui.LabelInput("Create a new label")
       labelInput.decorate(input)
 
@@ -26,7 +25,7 @@ object labels {
         }
       })
       goog.events.listen(button, "click", {e: Event => createLabel()})
-      */
+
       def createLabel () = {
         val error = goog.dom.getElement("new-label-error");
           /*
@@ -61,12 +60,13 @@ goog.provide('pages.labels');
 goog.require('goog.dom');
 goog.require('goog.ui.LabelInput');
 goog.require('goog.events');
+goog.require('goog.events.KeyCodes');
 
 pages.labels.main = function () {
   var labelsDiv = goog.dom.getElement("labels");
   var el = goog.dom.getElement("button");
-  var button = /** @type {HTMLButtonElement} */ (goog.dom.getElement("new-label-button"));
-  var input = /** @type {HTMLInputElement} */ (goog.dom.getElement("new-label-input"));
+  var button = /** @type {HTMLButtonElement} */(goog.dom.getElement("new-label-button"));
+  var input = /** @type {HTMLInputElement} */(goog.dom.getElement("new-label-input"));
   
   if (input != null) {
     var labelInput = new goog.ui.LabelInput("Create a new label");
@@ -77,12 +77,12 @@ pages.labels.main = function () {
     });
     
     goog.events.listen(button, "click", function (e) {
-      return pages.labels.createLabel();
+      createLabel();
     });
+    
+    var createLabel = function () {
+      var error = goog.dom.getElement("new-label-error");
+      var name = labelInput.getValue();
+    };
   }
-};
-
-pages.labels.createLabel = function () {
-  var error = goog.dom.getElement("new-label-error");
-  var name = labelInput.getValue();
 };

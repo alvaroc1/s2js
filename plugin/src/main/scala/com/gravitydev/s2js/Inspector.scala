@@ -36,7 +36,7 @@ object Inspector extends Rewriter {
         l.append(print(tpe))
       }*/
       
-      //case Property(owner, name, tpt @ Select(_,_,_,_), Select(_,_,_,_), mods) => {
+      //case Property(owner, name, tpt @ Select(_,_,_,_), Select(_,_,_,_)) => {
       //  l.append(print(tpt))
       //}
       // TODO: these should be collapsed into one case with guards
@@ -48,12 +48,8 @@ object Inspector extends Rewriter {
       case Select(s @ Select(_,_,SelectType.Module), _, SelectType.Method) => {
         l.append(print(s))
       }
-      // select package
-      case Select( s @ Select(_,_,JsSelectType.Package), _, JsSelectType.Method) => {
-        l.append(print(s))
-      }
       // select prop
-      case Select (s @ Select(_,_,JsSelectType.Module),_,JsSelectType.Prop) => {
+      case Select (s @ Select(_,_,SelectType.Module),_,SelectType.Prop) => {
         l.append(print(s))
       }
       
