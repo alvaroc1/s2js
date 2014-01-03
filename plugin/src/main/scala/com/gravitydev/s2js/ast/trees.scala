@@ -20,6 +20,8 @@ case class Module (name:String, properties:Seq[Property], methods:Seq[Method], c
 
 case class Array (elements: Seq[Tree]) extends Tree
 
+case class ArrayItemGet (sel: Tree, key: Tree) extends Tree
+
 case class New (tpt: Tree) extends Tree
 
 case class Class (name:String, sup: Option[Tree], constructor:Method, props:Seq[Property], methods:Seq[Method]) extends CompilationUnit
@@ -53,6 +55,12 @@ case class Ident (name:String, tpe: Type) extends Tree with Typed
 case class InfixOp (operand1: Tree, operand2: Tree, op:String) extends Tree
 
 case class UnaryOp (operand: Tree, op: String, opPos: OpPos) extends Tree
+
+case class ObjectItemGet(sel: Tree, key: Tree) extends Tree
+
+case class Object (elements: Seq[ObjectItem]) extends Tree
+
+case class ObjectItem(key: String, value: Tree) extends Tree
 
 trait OpPos
 case object Prefix extends OpPos

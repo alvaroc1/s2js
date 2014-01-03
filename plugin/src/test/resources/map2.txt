@@ -28,12 +28,19 @@ object labels {
 
       def createLabel () = {
         val error = goog.dom.getElement("new-label-error");
-        val name = labelInput.getValue
-        /*
         error.innerHTML = ""
-          var name = labelInput.getValue();
-          button.disabled = true;
-          button.innerHTML = "Creating label...";
+        val name = labelInput.getValue
+        button.disabled = true;
+        button.innerHTML = "Creating label..."
+        val createLabelUrl = "/some/url"
+        XhrIo.send(createLabelUrl, {(e: Event) =>
+          button.innerHTML = "Create";
+          val res = e.currentTarget.asInstanceOf[XhrIo].getResponseJson("")
+          if (res.get("success").asInstanceOf[Boolean]) {
+            labelInput.clear
+          }
+        })
+        /*
           goog.net.XhrIo.send(createLabelUrl, function (e) {
             button.innerHTML = "Create";
             var res = /** @type {goog.net.XhrIo} */ (e.currentTarget).getResponseJson("");
@@ -61,6 +68,7 @@ goog.require('goog.dom');
 goog.require('goog.ui.LabelInput');
 goog.require('goog.events');
 goog.require('goog.events.KeyCodes');
+goog.require('goog.net.XhrIo');
 
 pages.labels.main = function () {
   var labelsDiv = goog.dom.getElement("labels");
@@ -82,7 +90,15 @@ pages.labels.main = function () {
     
     var createLabel = function () {
       var error = goog.dom.getElement("new-label-error");
+      error.innerHTML = "";
       var name = labelInput.getValue();
+      button.disabled = true;
+      button.innerHTML = "Creating label...";
+      var createLabelUrl = "/some/url";
+      goog.net.XhrIo.send(createLabelUrl, function (e) {
+        button.innerHTML = "Create";
+        var res = /** @type {goog.net.XhrIo} */(e.currentTarget).getResponseJson("");
+      });
     };
   }
 };

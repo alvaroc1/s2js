@@ -29,3 +29,10 @@ s.length;
 ----
 var s = "x"; 
 s.length;
+
+####
+def check () = 1
+----
+var check = function () {
+  return 1;
+};

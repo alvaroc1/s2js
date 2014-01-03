@@ -90,20 +90,40 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
       case a @ Apply(Select(arr @ Array(_), "foreach", SelectType.Method), args, Types.VoidT) => {
         Apply(Select(Select(Ident("goog", Types.PackageT), "array", SelectType.Module), "forEach", SelectType.Method), Seq(arr) ++ args, Types.VoidT)
       }
+      
+      // Map[String,*] apply (a bit hacky, but seems to work)
+      case a @ Apply(s @ Select(s2 @ PredefMap(), "apply",SelectType.Method),params,tpe) if tpe.name startsWith "scala.collection.immutable.Map[String," => {
+        println(params)
+        Object {
+          params map {case Apply(Select(s @ Apply(_, List(Literal(name, Types.StringT)),_), "$minus$greater", SelectType.Method), ps, tpe) =>
+            ObjectItem(name.stripPrefix("\"").stripSuffix("\""), ps.head) 
+          }
+        }
+      }
     }
   }
   
-  val operators = rule {
-    // unary
-    case Select(qualifier, name, t) if operatorMaps.prefix contains name => UnaryOp(qualifier, operatorMaps.prefix(name), Prefix)
-    
-    // prop assign
-    case Apply(Select(sel, m, SelectType.Method), List(param), _) if m endsWith "_$eq" => {
-      println(sel)
-      Assign(Select(sel, m stripSuffix "_$eq", SelectType.Prop), param)
+  val operators = attempt {
+    rule {
+      // unary
+      case Select(qualifier, name, t) if operatorMaps.prefix contains name => UnaryOp(qualifier, operatorMaps.prefix(name), Prefix)
+      
+      // prop assign
+      case Apply(Select(sel, m, SelectType.Method), List(param), _) if m endsWith "_$eq" => {
+        println(sel)
+        Assign(Select(sel, m stripSuffix "_$eq", SelectType.Prop), param)
+      }
+      
+      // List.apply: Nil(0) --> [][0]
+      case Apply(s @ Select(a @ Array(_), "apply", SelectType.Method), List(key), tpe) => {
+        ArrayItemGet(a, key)
+      }
+      
+      // Object.apply: {}.apply("a") --> {}["a"]
+      case Apply(s @ Select(o @ Object(_), "apply", SelectType.Method), List(key), tpe) => {
+        ObjectItemGet(o, key)
+      }
     }
-    
-    case x => x
   }
   
   val removeSuperCalls = {
@@ -139,12 +159,22 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
   // extractors
   private val ScalaType = Type("_scala_", Nil)
   private val ScalaPkg = Ident("scala", ScalaType)
+  private val Predef = Select(ScalaPkg, "Predef", SelectType.Module)
   private val CollectionPkg = Select(ScalaPkg, "collection", SelectType.Module)
   private val CollectionImmutablePkg = Select(CollectionPkg, "immutable", SelectType.Module)
   object ScalaNil {
     def unapply (x: Tree) = {
       x match {
         case Select(CollectionImmutablePkg, "Nil", SelectType.Module) => Some(())
+        case _ => None
+      }
+    }
+  }
+  
+  object PredefMap {
+    def unapply (x: Tree) = {
+      x match {
+        case Select(Predef, "Map",_) => Some(())
         case _ => None
       }
     }

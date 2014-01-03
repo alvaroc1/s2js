@@ -107,7 +107,22 @@ object Printer extends PrettyPrinter {
       case Select(Ident("$toplevel", Type("_scala_", Nil)), name, _) => name
       
       // selection
-      case Select(qual, name, stpe) => showInner(qual) <> "." <> name  
+      case Select(qual, name, stpe) => showInner(qual) <> "." <> name
+      
+      case Object(items) => {
+        val contents = items map {x =>
+          "\"" <> x.key <> "\"" <> ":" <+> showInner(x.value)
+        }
+        "{" <> nest( ssep(contents, ", ") ) <> "}"
+      }
+      
+      case ObjectItemGet(sel, key) => {
+        showInner(sel) <> "[" <> showInner(key) <> "]"
+      }
+      
+      case ArrayItemGet(sel, key) => {
+        showInner(sel) <> "[" <> showInner(key) <> "]"
+      }
       
       case fn @ Function(params, body, _) => printFunction(pkg, unit, method, fn)
       

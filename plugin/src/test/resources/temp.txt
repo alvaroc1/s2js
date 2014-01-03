@@ -1,6 +1,4 @@
 ####
-def check () = 1
+Nil(0)
 ----
-var check = function () {
-  return 1;
-};
+[][0];
