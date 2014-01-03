@@ -38,6 +38,7 @@ object labels {
           val res = e.currentTarget.asInstanceOf[XhrIo].getResponseJson("")
           if (res.get("success").asInstanceOf[Boolean]) {
             labelInput.clear
+            return loadLabels()
           }
         })
         /*
@@ -98,6 +99,9 @@ pages.labels.main = function () {
       goog.net.XhrIo.send(createLabelUrl, function (e) {
         button.innerHTML = "Create";
         var res = /** @type {goog.net.XhrIo} */(e.currentTarget).getResponseJson("");
+        if (/** @type {boolean} */(res["success"])) {
+          labelInput.clear();
+        }
       });
     };
   }

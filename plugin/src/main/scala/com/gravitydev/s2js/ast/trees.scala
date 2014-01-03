@@ -26,7 +26,7 @@ case class New (tpt: Tree) extends Tree
 
 case class Class (name:String, sup: Option[Tree], constructor:Method, props:Seq[Property], methods:Seq[Method]) extends CompilationUnit
 
-case class Cast(subject: Tree, tpe: Type) extends Tree
+case class Cast(subject: Tree, tpe: Type) extends Tree with Typed
 
 case class Property () extends Tree
 

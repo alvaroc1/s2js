@@ -1,4 +1,4 @@
 ####
-Nil(0)
+null.asInstanceOf[Map[String,Int]]("test")
 ----
-[][0];
+/** @type {Object.<string,number>} */(null)["test"];

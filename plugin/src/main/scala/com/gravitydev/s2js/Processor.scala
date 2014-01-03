@@ -119,9 +119,14 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
         ArrayItemGet(a, key)
       }
       
-      // Object.apply: {}.apply("a") --> {}["a"]
-      case Apply(s @ Select(o @ Object(_), "apply", SelectType.Method), List(key), tpe) => {
+      // Map.apply: {}.apply("a") --> {}["a"]
+      case Apply(s @ Select(o @ ObjectTyped(), "apply", SelectType.Method), List(key), tpe) => {
         ObjectItemGet(o, key)
+      }
+      
+      // Object.get("a") --> {...}["a"]
+      case a @ Apply(Select(s: Tree with Typed, "get", SelectType.Method), List(key), _) if s.tpe == Type("Object") => {
+        ObjectItemGet(s, key)
       }
     }
   }
@@ -177,6 +182,14 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
         case Select(Predef, "Map",_) => Some(())
         case _ => None
       }
+    }
+  }
+  
+  object ObjectTyped {
+    def unapply (x: Tree) = x match {
+      case Object(items) => Some(())
+      case x: Tree with Typed if x.tpe.name.stripSuffix("scala.collection.immutable.") startsWith "Map[String," => Some(())
+      case _ => None
     }
   }
   

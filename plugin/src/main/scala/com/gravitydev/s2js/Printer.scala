@@ -181,13 +181,23 @@ object Printer extends PrettyPrinter {
   }
 
   
-  private def printType (t:Type) = t match {
+  private def printType (t: Type): String = t match {
+    // hack for now
+    case Type("Int", _) => printType(Types.NumberT)
+    
     case Types.StringT  => "string"
     case Types.BooleanT => "boolean"
     case Types.NumberT  => "number"
     case Types.AnyT     => "Object"
     case Types.ArrayT   => "Array"
     //case Types.UnknownT => "UNKNOWN"
+      
+    // extremely hacky, i know
+    // TODO: use type params
+    case Type(name, _) if name.startsWith("Map[String,") => {
+      "Object.<string," + printType(Type(name.stripPrefix("Map[String,").stripSuffix("]"), Nil)) + ">"
+    }
+    
     case Type(name, _)  => name.stripPrefix("browser.")
   }
   
