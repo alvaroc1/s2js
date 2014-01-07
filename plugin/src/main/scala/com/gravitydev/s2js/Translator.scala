@@ -24,9 +24,6 @@ class Translator (val global: Global) {
     // transform to Js AST
     lazy val parsedUnit = getSourceFile(unit)
     
-    // process the AST
-    //processAST(parsedUnit)
-    
     parsedUnit
   }
  
@@ -101,17 +98,6 @@ class Translator (val global: Global) {
         case _ => true
       })) getOrElse Nil
       
-      /*
-      JsModule(
-        getJsRef(m.symbol.owner.tpe),
-        m.symbol.name.toString,
-        expressions map getJsTree,
-        properties map getProperty, 
-        methods map (getJsTree(_).asInstanceOf[JsMethod]),
-        classes map (getJsTree(_).asInstanceOf[JsClass]),
-        modules map (getJsTree(_).asInstanceOf[JsModule])
-      )
-      */
       ast.Module(
         m.symbol.name.toString, 
         properties map {getProperty(_)}, 
@@ -141,8 +127,8 @@ class Translator (val global: Global) {
 
     val methods = getMethods(body)
     
-    val superTypes = parents map getTree filter {_ != ast.Select(ast.Ident("scala", ast.Type("scala")), "AnyRef", ast.SelectType.Module)}
-
+    val superTypes = parents map (_.tpe) map getType filter {_ != ast.Select(ast.Ident("scala", ast.Type("scala")), "AnyRef", ast.SelectType.Module)}
+    
     ast.Class(
       c.symbol.name.toString,
       superTypes.headOption,

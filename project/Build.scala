@@ -1,5 +1,7 @@
 import sbt._
 import Keys._
+import sbtassembly.Plugin.AssemblyKeys._
+import sbtassembly.Plugin.assemblySettings
 import Configurations.CompilerPlugin
 
 object S2JSBuild extends Build {
@@ -7,16 +9,27 @@ object S2JSBuild extends Build {
 
   lazy val plugin = Project(id = "s2js-plugin", base = file("plugin"))
     .settings(commonSettings:_*)
+    .settings(assemblySettings:_*)
     .settings(
-      exportJars := true,
+      //exportJars := true,
       offline := true,
       libraryDependencies ++= Seq(
         "org.scala-lang" % "scala-compiler" % "2.10.3" % "compile;runtime;test",
+        "com.googlecode.kiama" %% "kiama" % "1.5.1" % "compile;runtime;test",
+
+        // test deps
         "org.scalatest" % "scalatest_2.10" % "2.0" % "test",
         "com.github.scala-incubator.io" %% "scala-io-core" % "0.4.2" % "test",
-        "com.github.scala-incubator.io" %% "scala-io-file" % "0.4.2" % "test",
-        "com.googlecode.kiama" %% "kiama" % "1.5.1"
-      )
+        "com.github.scala-incubator.io" %% "scala-io-file" % "0.4.2" % "test"
+      ),
+      test in assembly := {},
+      artifact in (Compile, assembly) ~= {art =>
+        art.copy(`classifier` = Some("assembly"))
+      },
+      assemblyOption in assembly ~= { _.copy(includeScala = false) }
+    )
+    .settings(
+      addArtifact(artifact in (Compile, assembly), assembly) :_*
     )
     .dependsOn(externs)
 
@@ -46,7 +59,9 @@ object S2JSBuild extends Build {
 
   val commonSettings = Seq(
     organization := "com.gravitydev",
-    scalaVersion := "2.10.3"
+    version := "0.0.5-SNAPSHOT",
+    scalaVersion := "2.10.3",
+    publishTo := Some("devstack" at "https://devstack.io/repo/gravitydev/public")
   )
 }
 

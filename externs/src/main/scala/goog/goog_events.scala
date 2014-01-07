@@ -1,3 +1,4 @@
+import goog.Disposable
 
 package goog {
 	package object events {
@@ -35,7 +36,7 @@ package goog.events {
 	
 	class FocusHandler
 	
-	class EventTarget {
+	class EventTarget extends Disposable {
 		def dispatchEvent (e :String) :Boolean = false
 		def dispatchEvent (e :Event) :Boolean = false
 	}

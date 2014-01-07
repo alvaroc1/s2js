@@ -4,9 +4,6 @@ import scala.tools.nsc.{Global, Phase}
 //import scala.tools.nsc.symtab.Symbols
 import scala.tools.nsc.plugins.PluginComponent
 import scala.collection.mutable.ListBuffer
-import StringUtil._
-import S2JSComponent._
-import JsAstProcessor._
 
 class Component (val global:Global, val plugin:S2JSPlugin) extends PluginComponent {
   import global._
@@ -17,7 +14,7 @@ class Component (val global:Global, val plugin:S2JSPlugin) extends PluginCompone
   
   val phaseName = "s2js"
     
-  val outputDir = plugin.output 
+  val outputDir = plugin.output
     
   def collect [T <: Tree] (tree: Tree)(pf: PartialFunction[Tree, T]): List[T] = {
     val lb = new ListBuffer[T]
@@ -33,16 +30,11 @@ class Component (val global:Global, val plugin:S2JSPlugin) extends PluginCompone
     
     override def apply (unit: CompilationUnit) {
       import java.io._
-    
-      // S2JSComponent.this.global.treeBrowser.browse(unit.body)
       
       // output paths
       val path = unit.body.symbol.fullName.replace('.', '/')
       val name = unit.source.file.name.stripSuffix(".scala").toLowerCase
       val dir = plugin.output + "/" + path
-      
-      // create the directories
-      new File(dir).mkdirs
       
       // get the package
       var pkg = ""
@@ -50,32 +42,25 @@ class Component (val global:Global, val plugin:S2JSPlugin) extends PluginCompone
         case PackageDef(pid,_) => pkg = pid.toString
       }
       
-      // transform to Js AST
-      val processor = new Translator(global)
+      if (plugin.packages contains pkg) {
+        // create the directories
+        new File(dir).mkdirs
       
-      lazy val parsedUnit = processor.getSourceFile(unit.asInstanceOf[processor.global.CompilationUnit])//getJsSourceFile(unit.body.asInstanceOf[PackageDef], name)
+        println(s"Compiling $name to $dir")
       
-      println(parsedUnit)
-      
-      //val processed = JsAstProcessor process parsedUnit
-      //println( JsAstPrinter print processed )
-      
-      // print and save
-      val code = Printer print parsedUnit
-      //println(code)
-      
-      //println("======== BEFORE PROCESSING ======")
-      //println(JsAstPrinter print parsedUnit)
-      //println("======== AFTER CLEANING =========")
-      //println(JsAstPrinter print cleaned)
-      //println("======== AFTER TRANSFORMING =====")
-      //println(JsAstPrinter print processed)
-      
-      var stream = new FileWriter(dir + "/" + name + ".js")
-      var writer = new BufferedWriter(stream)
-      writer write code
-      writer.close()
+        // transform to Js AST
+        val translator = new Translator(global)
+        
+        lazy val parsedUnit = translator.getSourceFile(unit.asInstanceOf[translator.global.CompilationUnit])
+  
+        val code = Printer print Processor(parsedUnit)
+        
+        var stream = new FileWriter(dir + "/" + name + ".js")
+        var writer = new BufferedWriter(stream)
+        writer write code
+        writer.close()
+      }
     }
   }
-  
 }
+

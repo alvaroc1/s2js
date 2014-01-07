@@ -28,7 +28,7 @@ object Inspector extends Rewriter {
     
     val find = query {
       // class supertype
-      case Class(_,Some(supType),_,_,_) => l += Printer.print(supType)
+      case Class(_,Some(supType),_,_,_) => l += Printer.printType(supType)
       
       // ignore right side of JsProperty and JsVar if it's a select, but add the tpe
       /*

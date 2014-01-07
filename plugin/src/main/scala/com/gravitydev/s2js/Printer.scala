@@ -1,7 +1,6 @@
 package com.gravitydev.s2js
 
 import ast._
-import StringUtil._
 import org.kiama.output.PrettyPrinter
 import org.kiama.rewriting.Rewriter
 import scala.collection.mutable.ListBuffer
@@ -18,7 +17,7 @@ object Printer extends PrettyPrinter {
         
         ssep(provides map (x => "goog.provide('" <> x <> "');"), line) <> line <> line <>
         (if (requires.nonEmpty) ssep(requires map (x => "goog.require('" <> x <> "');"), line) <> line <> line else "") <> 
-        show(pkg)
+        show(pkg) <> line
       }
       case pkg @ Package(name,units,exports) => {
         ssep(units map (printCompilationUnit(pkg,_)), line) <> line <>
@@ -83,7 +82,7 @@ object Printer extends PrettyPrinter {
       
       // super constructor application
       case Apply(Select(Super(This), "<init>", SelectType.Method), args, tpe) => {
-        print(unit.asInstanceOf[Class].sup.get) <> "." <> "call" <> parens( ssep(Seq("this": Doc) ++ (args map showInner), ", ") )
+        printType(unit.asInstanceOf[Class].sup.get) <> "." <> "call" <> parens( ssep(Seq("this": Doc) ++ (args map showInner), ", ") )
       }
       
       // application
@@ -129,19 +128,19 @@ object Printer extends PrettyPrinter {
       case x => show(expr)
     }
   }
-  
+
   def print (s: Tree) = pretty(show(s)).trim
-  
+
   private def printCompilationUnit (pkg: Package, unit: CompilationUnit) = {
     unit match {
       case c: Class => printClass(pkg, c)
       case m: Module => printModule(pkg, m)
     }
   }
-    
+
   private def printClass (pkg: Package, m:Class) = {
     printConstructor(pkg, m, m.constructor) <> 
-    (m.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> m.name <> ", " <> print(x) <> ");\n") getOrElse "")
+    (m.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> m.name <> ", " <> printType(x) <> ");\n") getOrElse "")
   }
 
   private def printModule (pkg: Package, mod: Module) = {
@@ -157,7 +156,7 @@ object Printer extends PrettyPrinter {
     val jsdoc = doc {
       Seq(
         "@constructor"
-      ) ++ unit.sup.map(x => "@extends {" + print(x) + "}").toList ++
+      ) ++ unit.sup.map(x => "@extends {" + printType(x) + "}").toList ++
       (m.fun.params map getParamDoc)
     }
     
@@ -181,7 +180,7 @@ object Printer extends PrettyPrinter {
   }
 
   
-  private def printType (t: Type): String = t match {
+  def printType (t: Type): String = t match {
     // hack for now
     case Type("Int", _) => printType(Types.NumberT)
     
@@ -251,6 +250,7 @@ object Printer extends PrettyPrinter {
       line <> ssep(fn.stats map (x => maybeSemi(x)(showExpr(pkg, unit, method, x))), line),
       2
     ) <> line <> "}"
+    println(res)
     res
   }
   
@@ -335,25 +335,6 @@ object TreePrinter {
     */
     "printtree"
   }
-    
-    def printIf (i:If) = i match {
-      case If (cond, thenp, elsep) => {
-        
-        // if else *returns* void, then the whole thing is void
-        val (thenxp, elsexp) = (thenp, elsep) match {
-          case (Return(x), Return(Void)) => x -> Void
-          case _ => thenp -> elsep
-        }
-        
-        val condition = "if (" + printTree(cond) + ") "
-        val body = indent(printWithSemiColon(thenxp))
-        val elseline = " else "
-        val e = indent(printWithSemiColon(elsexp))
-        val last = ""
-  
-        condition + body + (if (elsexp == Void) "" else elseline + e) + last
-      }
-    }
     
     def printType (t:Type) = t match {
       case Types.StringT  => "string"

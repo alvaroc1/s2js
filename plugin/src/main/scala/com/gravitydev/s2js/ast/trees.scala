@@ -1,7 +1,5 @@
 package com.gravitydev.s2js.ast
 
-import com.gravitydev.s2js.StringUtil.indent
-
 sealed trait Tree extends scala.util.parsing.input.Positional
 
 trait Typed {self: Tree =>
@@ -24,7 +22,7 @@ case class ArrayItemGet (sel: Tree, key: Tree) extends Tree
 
 case class New (tpt: Tree) extends Tree
 
-case class Class (name:String, sup: Option[Tree], constructor:Method, props:Seq[Property], methods:Seq[Method]) extends CompilationUnit
+case class Class (name:String, sup: Option[Type], constructor:Method, props:Seq[Property], methods:Seq[Method]) extends CompilationUnit
 
 case class Cast(subject: Tree, tpe: Type) extends Tree with Typed
 

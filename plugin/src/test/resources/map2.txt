@@ -1,67 +1,10 @@
 #### Full script
 package pages
 
-import browser._
-import goog.dom.{getElement, getElementsByTagNameAndClass, getAncestorByTagNameAndClass}
-import goog.events.{Event, BrowserEvent, EventType, KeyCodes}
-import goog.net.XhrIo
+class NodeContainer
 
-import goog.ui.LabelInput
+class Block extends NodeContainer
 
-object labels {
-  def main {
-    val labelsDiv = goog.dom.getElement("labels")
-    val el = goog.dom.getElement("button")
-    val button = goog.dom.getElement("new-label-button").asInstanceOf[browser.HTMLButtonElement]
-    val input = goog.dom.getElement("new-label-input").asInstanceOf[browser.HTMLInputElement]
-    
-    if (input != null) {
-      val labelInput = new goog.ui.LabelInput("Create a new label")
-      labelInput.decorate(input)
-
-      goog.events.listen(input, "keyup", {e: BrowserEvent => 
-        if (e.keyCode != goog.events.KeyCodes.ENTER) {
-          button.disabled = labelInput.getValue.length == 0
-        }
-      })
-      goog.events.listen(button, "click", {e: Event => createLabel()})
-
-      def createLabel () = {
-        val error = goog.dom.getElement("new-label-error");
-        error.innerHTML = ""
-        val name = labelInput.getValue
-        button.disabled = true;
-        button.innerHTML = "Creating label..."
-        val createLabelUrl = "/some/url"
-        XhrIo.send(createLabelUrl, {(e: Event) =>
-          button.innerHTML = "Create";
-          val res = e.currentTarget.asInstanceOf[XhrIo].getResponseJson("")
-          if (res.get("success").asInstanceOf[Boolean]) {
-            labelInput.clear
-            return loadLabels()
-          }
-        })
-        /*
-          goog.net.XhrIo.send(createLabelUrl, function (e) {
-            button.innerHTML = "Create";
-            var res = /** @type {goog.net.XhrIo} */ (e.currentTarget).getResponseJson("");
-            if (/** @type {boolean} */ (res["success"])) {
-              labelInput.clear();
-              return loadLabels(function () {
-                return selectLabel(name);
-              });
-            } else {
-              button.disabled = false;
-              return error.innerHTML = /** @type {Array} */ (res["errors"]).join(", ");
-            }
-          }, "POST", vanity.util.buildHttpQuery({
-            "name": name
-          }));
-          */
-      }
-    }
-  }
-}
 ----
 goog.provide('pages.labels');
 

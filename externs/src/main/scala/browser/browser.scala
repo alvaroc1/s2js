@@ -106,6 +106,12 @@ class HTMLSelectElement extends Element with HTMLControl
 
 class Document {
 	val body:Element = null
+	
+	/**
+	 * @param id is a case-sensitive string representing the unique ID of the element being sought.
+	 */
+	def getElementById (id: String): Element = null
+	
 	def execCommand(command:String, showDefaultUI:Boolean, value:String) {}
 }
 

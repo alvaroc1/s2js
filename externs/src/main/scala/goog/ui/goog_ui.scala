@@ -1,11 +1,7 @@
-package goog.ui 
+package goog.ui
 
 import browser._
 import goog.dom.DomHelper
-
-class AdvancedTooltip (opt_el:Element=null, opt_str:String="", opt_domHelper:DomHelper=null) extends Tooltip {
-	def setCursorTracking (b:Boolean) {}
-}
 
 class Button (content:AnyRef /* ControlContent*/, renderer:ButtonRenderer=null, domHelper:DomHelper=null) extends Control (content) {
 	// this doesn't exist but it is used on goog.editor
@@ -14,51 +10,6 @@ class Button (content:AnyRef /* ControlContent*/, renderer:ButtonRenderer=null, 
 
 class ButtonRenderer extends ControlRenderer
 
-class Component (opt_domHelper:DomHelper=null) extends goog.events.EventTarget {
-	def createDom () {}
-	def getDomHelper () : DomHelper = null
-	def getElement () : Element = null
-	def getElementByFragment (idFragment:String) :Element = null
-	def getId () : String = ""
-	def isInDocument () : Boolean = false
-	def makeId (idFragment:String) = ""
-	def setElementInternal (el:Element) {}
-	def render (opt_parentElement:Element = null) {}
-	def enterDocument () {}
-	def decorate (element:Element) {}
-}
-
-object Component {
-	class EventType
-	object EventType {			
-		val BEFORE_SHOW = ""
-		val SHOW = ""
-		val HIDE = ""
-		val DISABLE = ""
-		val ENABLE = ""
-		val HIGHLIGHT = ""
-		val UNHIGHLIGHT = ""
-		val ACTIVATE = ""
-		val DEACTIVATE = ""
-		val SELECT = ""
-		val UNSELECT = ""
-		val CHECK = ""
-		val UNCHECK = ""
-		val FOCUS = ""
-		val BLUR = ""
-		val OPEN = ""
-		val CLOSE = ""
-		val ENTER = ""
-		val LEAVE = ""
-		val ACTION = ""
-		val CHANGE = ""
-	}
-	
-	object Error {
-		val ALREADY_RENDERED = ""
-	}
-}
-
 class Container (opt_orientation:Container.Orientation, opt_renderer:ContainerRenderer, opt_domHelper:goog.dom.DomHelper) extends Component {
 	def this () = this(null, null, null)
 	def this (opt_orientation:Container.Orientation) = this(opt_orientation, null, null)
@@ -66,7 +17,6 @@ class Container (opt_orientation:Container.Orientation, opt_renderer:ContainerRe
 	
 	def setModel (obj:AnyRef) {}
 	def setFocusable (focusable:Boolean) {}
-	def getHandler:goog.events.EventHandler = new goog.events.EventHandler
 	
 	def forEachChild (fn:(AnyRef, Int)=>Unit) {}
 }
@@ -234,12 +184,6 @@ object MenuSeparatorRenderer {
 	def getInstance():MenuSeparatorRenderer = null
 }
 
-class Popup (opt_element:Element=null, opt_position:goog.positioning.AbstractPosition=null) extends PopupBase {
-	def getPosition ():goog.positioning.AbstractPosition = null
-	def setPosition (position:goog.positioning.AbstractPosition) {}
-	def setPinnedCorner (corner:goog.positioning.Corner) {}
-}
-
 class PopupBase (opt_element:Element=null, opt_type:PopupBase.Type=null) extends goog.events.EventTarget {
 	def getType ():PopupBase.Type = null
 	def setType (tpe:PopupBase.Type) {}
@@ -292,9 +236,3 @@ class ToggleButton (content:AnyRef /* ControlContent */, renderer:ButtonRenderer
 class Toolbar (renderer:ToolbarRenderer, orientation:Any = null, domHelper:DomHelper = null)
 
 class ToolbarRenderer
-
-class Tooltip (opt_el:Element=null, opt_str:String="", opt_domHelper:DomHelper=null) extends Popup {
-	var className = ""
-	
-	def setElement (el:Element) {}
-}
