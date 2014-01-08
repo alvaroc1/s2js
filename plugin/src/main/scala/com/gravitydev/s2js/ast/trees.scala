@@ -26,9 +26,9 @@ case class Class (name:String, sup: Option[Type], constructor:Method, props:Seq[
 
 case class Cast(subject: Tree, tpe: Type) extends Tree with Typed
 
-case class Property () extends Tree
+case class Property (name: String, rhs: Tree, tpe: Type, mod: Modifiers) extends Tree with Typed
 
-case class Method (name:String, fun: Function) extends Tree
+case class Method (name:String, fun: Function, mod: Modifiers) extends Tree
 
 case class Block (stats: Seq[Tree]) extends Tree
 
@@ -73,7 +73,7 @@ case object This extends Tree
 
 case class Select (qualifier: Tree, name: String, selectType: SelectType) extends Tree
 
-case class PropRef (sel: Select, tpe: Type) extends Tree
+case class PropRef (sel: Select, tpe: Type) extends Tree with Typed
 
 sealed trait SelectType
 object SelectType {
@@ -102,8 +102,6 @@ object Types {
 	object NullT     extends Type("Null")      with BuiltInType
 }
 
-object zipper {
-  trait Context
-  case object Top extends Context
-  case class TreeContext (left: List[Tree], ctx: Context, right: List[Tree]) extends Context
-}
+case class Modifiers (
+  isPrivate: Boolean = false
+)

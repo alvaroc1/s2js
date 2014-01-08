@@ -22,10 +22,11 @@ class BasicCompilerSpec extends FunSpec {
     //parseFile(basePath + "/collections.txt") map {case (title, sc, js) => ExpressionCompiler.checkCode(sc, js, title)}
     //parseFile(basePath + "/statements.txt") map {case (title, sc, js) => StatementCompiler.checkCode(sc, js, title)}
     //parseFile(basePath + "/modules.txt") map {case (title, sc, js) => CompilationUnitCompiler.checkCode(sc, js, title)}
+    //parseFile(basePath + "/classes.txt") map {case (title, sc, js) => CompilationUnitCompiler.checkCode(sc, js, title)}
+
+    parseFile(basePath + "/temp.txt") map {case (title, sc, js) => CompilationUnitCompiler.checkCode(sc, js, title)}
     
-    //parseFile(basePath + "/temp.txt") map {case (title, sc, js) => StatementCompiler.checkCode(sc, js, title)}
-    
-    parseFile(basePath + "/map2.txt") map {case (title, sc, js) => CompilationUnitCompiler.checkCode(sc, js, title)}
+    //parseFile(basePath + "/map2.txt") map {case (title, sc, js) => CompilationUnitCompiler.checkCode(sc, js, title)}
       
     //parseFile(basePath + "/browser.txt") map {case (title, sc, js) => stmt.check(sc, js, title)}
   }

@@ -33,6 +33,8 @@ object Printer extends PrettyPrinter {
       
       case Ident(name, _)             => name
       
+      case This => "this"
+      
       case x => "UNKNOWN: " + x.toString
     }
   }
@@ -138,9 +140,13 @@ object Printer extends PrettyPrinter {
     }
   }
 
-  private def printClass (pkg: Package, m:Class) = {
-    printConstructor(pkg, m, m.constructor) <> 
-    (m.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> m.name <> ", " <> printType(x) <> ");\n") getOrElse "")
+  private def printClass (pkg: Package, c: Class) = {
+    printConstructor(pkg, c, c.constructor) <> 
+    (c.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> c.name <> ", " <> printType(x) <> ");\n") getOrElse "") <> 
+    line <>
+    ssep(c.props map (printProp(pkg, c, _)), line) <> 
+    line <> line <>
+    ssep(c.methods map (printMethod(pkg, c, _)), line)
   }
 
   private def printModule (pkg: Package, mod: Module) = {
@@ -179,6 +185,10 @@ object Printer extends PrettyPrinter {
     jsdoc <> lhs <> rhs
   }
 
+  private def printProp (pkg: Package, unit: CompilationUnit, prop: Property) = {
+    doc(Seq("@private") filter (_ => prop.mod.isPrivate)) <>
+    memberPrefix(pkg, unit) <> prop.name <+> "=" <+> show(prop.rhs) <> semi
+  }
   
   def printType (t: Type): String = t match {
     // hack for now

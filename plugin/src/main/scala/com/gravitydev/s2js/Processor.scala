@@ -13,15 +13,12 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     topdown(collectionRewrites) <*
     topdown(operators) <* 
     topdown(cleanUpBlocks) <*
+    removeInheritanceFromObject <*
     removeSuperCalls
   )(ast).map(_.asInstanceOf[T]).get
 
   
   val basicReplacements = rule {
-    // remove void returns
-    //case Function(params, Return(Void)) => Function(params, Block(Nil))
-        
-    
     // clean up function
     case Function (params, stats, tpe) if stats.nonEmpty => {
       val last = stats.last
@@ -98,6 +95,16 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
           params map {case Apply(Select(s @ Apply(_, List(Literal(name, Types.StringT)),_), "$minus$greater", SelectType.Method), ps, tpe) =>
             ObjectItem(name.stripPrefix("\"").stripSuffix("\""), ps.head) 
           }
+        }
+      }
+    }
+  }
+  
+  val removeInheritanceFromObject = topdown {
+    attempt {
+      rule {
+        case c @ Class(_, Some(Types.AnyT), _, _, _) => {
+          c.copy(sup = None)
         }
       }
     }

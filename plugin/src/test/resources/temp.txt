@@ -1,4 +1,26 @@
 ####
-null.asInstanceOf[Map[String,Int]]("test")
+class Node {
+  private val x = "check"
+  def getX = x
+}
 ----
-/** @type {Object.<string,number>} */(null)["test"];
+goog.provide('Node');
+
+/**
+ * @constructor 
+ */
+Node = function () {
+
+};
+
+/**
+ * @private 
+ */
+Node.prototype.x = "check";
+
+/**
+ * @return {string}
+ */
+Node.prototype.getX = function () {
+  return this.x;
+};

@@ -1,0 +1,49 @@
+####
+class Cursor 
+----
+goog.provide('Cursor');
+
+/**
+ * @constructor
+ */
+Cursor = function () {
+};
+####
+package ast
+
+abstract class Node
+
+class Cursor extends Node {
+  def focus = println(getName)
+  def getName = "cursor"
+}
+----
+goog.provide('ast.Node');
+goog.provide('ast.Cursor');
+
+/**
+ * @constructor
+ */
+ast.Node = function () {
+
+};
+
+/**
+ * @constructor
+ * @extends {ast.Node}
+ */
+ast.Cursor = function () {
+  ast.Node.call(this);
+};
+goog.inherits(ast.Cursor, ast.Node);
+
+ast.Cursor.prototype.focus = function () {
+  console.log(this.getName());
+};
+
+/**
+ * @return {string}
+ */
+ast.Cursor.prototype.getName = function () {
+  return "cursor";
+};

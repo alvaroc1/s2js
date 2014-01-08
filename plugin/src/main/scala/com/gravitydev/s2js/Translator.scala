@@ -120,9 +120,9 @@ class Translator (val global: Global) {
   // all valdefs that have a corresponding accessor
     val accessorNames = body.collect({ case x:DefDef if x.symbol.isGetter => x.name.toString })
     val properties = body.collect({
-// don't know why but valdef's name has a space at the end
-// trim it
-    case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
+      // don't know why but valdef's name has a space at the end
+      // trim it
+      case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
     })
 
     val methods = getMethods(body)
@@ -132,14 +132,13 @@ class Translator (val global: Global) {
     ast.Class(
       c.symbol.name.toString,
       superTypes.headOption,
-  //getConstructor(c, primary),
       getMethod(primary),
-  properties map getProperty,
-  methods map getMethod
+      properties map getProperty,
+      methods map getMethod
     )
   }
   
-  def getProperty (prop:ValDef) = {  
+  def getProperty (prop:ValDef) = {
     /*
     JsProperty(
       getType(prop.symbol.owner),
@@ -158,7 +157,14 @@ class Translator (val global: Global) {
       )
     )
     */
-    ast.Property()
+    ast.Property(
+      prop.name.toString,
+      getTree(prop.rhs),
+      getType(prop.tpt.tpe),
+      ast.Modifiers(
+        isPrivate = prop.symbol.isPrivate
+      )
+    )
   }
   
   def getMethod (m:DefDef) = {
@@ -174,6 +180,9 @@ class Translator (val global: Global) {
           case x => Seq(getTree(x))
         },
         getType(m.tpt.tpe)
+      ),
+      ast.Modifiers(
+        isPrivate = m.symbol.isPrivate
       )
     )
   }
@@ -206,6 +215,7 @@ class Translator (val global: Global) {
     case v: ValDef => getValDef(v)
     //case d: DefDef => getDefDef(d)
     
+    // TODO: move to Processor?
     // println
     case Select (Select(This(q),subject), name) if q.toString == "scala" && subject.toString == "Predef" && name.toString == "println" => {
       ast.Select(ast.Ident("console", ast.Type("_scala_")), "log", ast.SelectType.Method)
@@ -290,16 +300,37 @@ class Translator (val global: Global) {
     )
   }
   def getSelect (s: Select) = {
-    ast.Select(
-      getTree(s.qualifier),
-      s.name.toString,
-      s.symbol match {
-        case _: ModuleSymbol  => ast.SelectType.Module
-        case _: ClassSymbol   => ast.SelectType.Class 
-        case _: MethodSymbol  => ast.SelectType.Method
-        case _                => ast.SelectType.Module
+    def getSelType (sym: Symbol) = sym match {
+      case _: ModuleSymbol  => ast.SelectType.Module
+      case _: ClassSymbol   => ast.SelectType.Class 
+      case x: MethodSymbol  => {
+        ast.SelectType.Method
       }
-    )
+      case _                => ast.SelectType.Module
+    }
+    
+    s.tpe match {
+      // if the type is a TypeRef, that probably means this is a parameterless-method application
+      case _: TypeRef if s.symbol.isAccessor => ast.PropRef(
+        ast.Select(getTree(s.qualifier), s.name.toString, getSelType(s.symbol)),
+        getType(s.tpe)
+      )
+      case _: TypeRef if !s.symbol.isAccessor => ast.Apply(
+        ast.Select(
+          getTree(s.qualifier),
+          s.name.toString,
+          getSelType(s.symbol)
+        ),
+        Nil,
+        getType(s.tpe)
+      )
+      // else this is probably a MethodType
+      case _ => ast.Select(
+        getTree(s.qualifier),
+        s.name.toString,
+        getSelType(s.symbol)
+      )
+    }
   }
   
   def getIf (i:If) = {
@@ -322,14 +353,6 @@ class Translator (val global: Global) {
      getType(v.tpt.tpe),
      getTree(v.rhs)
    )
-  }
-  
-  def getSelect (symbol: Symbol) = {
-    //ast.Select(null, symbol.in)
-  }
-  
-  def getTypeName (tpe: TypeName) = {
-    println(tpe)
   }
   
   def getType (tpe:Type):ast.Type = {
