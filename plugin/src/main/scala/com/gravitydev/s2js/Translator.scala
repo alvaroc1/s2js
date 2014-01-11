@@ -235,7 +235,7 @@ class Translator (val global: Global) {
       if (x == null) ast.Null 
       else {
         val tpe = getType(l.tpe).asInstanceOf[ast.Type with ast.BuiltInType]
-        val value = if (tpe == ast.Types.StringT) "\"" + x.toString + "\"" else x.toString
+        val value = if (tpe == ast.Types.StringT) "\"" + x.toString.replace("\"", "\\\"") + "\"" else x.toString
         ast.Literal(value, tpe)
       }
     }
@@ -316,6 +316,8 @@ class Translator (val global: Global) {
     case Super(qual, _) => ast.Super(getTree(qual))
     
     case This(qual) => ast.This
+    
+    case Return(x) => ast.Return(getTree(x))
     
     case x => {
       //sys.error("not implemented for " + x.getClass)

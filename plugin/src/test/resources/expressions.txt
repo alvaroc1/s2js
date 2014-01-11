@@ -42,3 +42,8 @@ false
 sys.error("Error")
 ----
 throw new Error("Error")
+
+#### codePoint
+"".codePointAt(0)
+----
+"".charCodeAt(0)

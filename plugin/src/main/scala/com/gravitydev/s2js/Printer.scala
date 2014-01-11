@@ -34,6 +34,8 @@ object Printer extends PrettyPrinter {
       case Ident(name, _)             => name
       
       case This => "this"
+        
+      case Void => ""
       
       case x => "UNKNOWN: " <> x.toString
     }
@@ -118,6 +120,10 @@ object Printer extends PrettyPrinter {
       // throw
       case Throw(x) => {
         "throw" <+> showInner(x)
+      }
+      
+      case Return(x) => {
+        "return" <+> showInner(x)
       }
       
       // top-level selects

@@ -1,4 +1,10 @@
 #### codePoint
-"".codePointAt(0)
+import goog.events.KeyEvent
+class X {
+  def getValue (k: KeyEvent) = {
+    if (k.charCode == "".codePointAt(0)) "x" else "y"
+  }
+}
 ----
+
 "".charCodeAt(0)
