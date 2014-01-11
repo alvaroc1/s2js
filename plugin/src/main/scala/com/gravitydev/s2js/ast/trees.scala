@@ -71,6 +71,8 @@ case object Null extends Tree
 case class Super(qual: Tree) extends Tree
 case object This extends Tree
 
+case class Throw (value: Tree) extends Tree
+
 case class Select (qualifier: Tree, name: String, selectType: SelectType) extends Tree
 
 case class PropRef (sel: Select, tpe: Type) extends Tree with Typed
@@ -95,7 +97,6 @@ object Types {
 	object BooleanT  extends Type("Boolean")   with BuiltInType
 	object NumberT   extends Type("Number")    with BuiltInType
 	object FunctionT extends Type("Function")  with BuiltInType
-	//object UnknownT  extends Type("UNKOWN")    with BuiltInType // probably not built-in?
 	object AnyT      extends Type("Any")       with BuiltInType // probably not built-in?
 	object VoidT     extends Type("Void")      with BuiltInType
 	object PackageT  extends Type("Package")   with BuiltInType
@@ -103,5 +104,6 @@ object Types {
 }
 
 case class Modifiers (
-  isPrivate: Boolean = false
+  isPrivate: Boolean = false,
+  isOverride: Boolean = false
 )

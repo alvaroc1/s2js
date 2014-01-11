@@ -11,7 +11,7 @@ abstract class Compiler extends Assertions {
   val base = home + "/workspace/s2js"
     
   val scalaLib = home + "/.sbt/boot/scala-2.10.3/lib/scala-library.jar:" +
-      base + "/externs/target/scala-2.10/s2js-externs_2.10-0.1-SNAPSHOT.jar:" +
+      base + "/externs/target/scala-2.10/s2js-externs_2.10-0.0.5-SNAPSHOT.jar:" +
       base + "/api/target/scala-2.10/s2js-api_2.10-0.1-SNAPSHOT.jar"
         
     settings.classpath.value = scalaLib

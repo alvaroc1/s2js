@@ -1,26 +1,4 @@
-####
-class Node {
-  private val x = "check"
-  def getX = x
-}
+#### codePoint
+"".codePointAt(0)
 ----
-goog.provide('Node');
-
-/**
- * @constructor 
- */
-Node = function () {
-
-};
-
-/**
- * @private 
- */
-Node.prototype.x = "check";
-
-/**
- * @return {string}
- */
-Node.prototype.getX = function () {
-  return this.x;
-};
+"".charCodeAt(0)

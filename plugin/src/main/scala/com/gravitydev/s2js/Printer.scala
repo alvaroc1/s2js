@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import language.postfixOps
 
 object Printer extends PrettyPrinter {
-  import Inspector.{findProvides, findRequires}
+  import Inspector._
   
   def show (t: Tree): Doc = {
     t match {
@@ -35,7 +35,7 @@ object Printer extends PrettyPrinter {
       
       case This => "this"
       
-      case x => "UNKNOWN: " + x.toString
+      case x => "UNKNOWN: " <> x.toString
     }
   }
   
@@ -87,6 +87,12 @@ object Printer extends PrettyPrinter {
         printType(unit.asInstanceOf[Class].sup.get) <> "." <> "call" <> parens( ssep(Seq("this": Doc) ++ (args map showInner), ", ") )
       }
       
+      // super method application
+      case Apply(sel, params, tpe) if isSuperSelect(sel) => {
+        packagePrefix(pkg) <> unit.name <> "." <> "superClass_" <>
+        showInner(sel) <> ".call" <> parens( ssep(Seq("this": Doc) ++ (params map showInner), ", ") )
+      }
+      
       // application
       case Apply(fun, params, tpe) => {
         showInner(fun) <> parens( ssep(params map showInner, ", ") )
@@ -102,6 +108,16 @@ object Printer extends PrettyPrinter {
       
       case Select(New(sel), "<init>", SelectType.Method) => {
         "new" <+> showInner(sel)
+      }
+      
+      // instantiation
+      case New(sel) => {
+        "new" <+> showInner(sel)
+      }
+      
+      // throw
+      case Throw(x) => {
+        "throw" <+> showInner(x)
       }
       
       // top-level selects
@@ -125,6 +141,8 @@ object Printer extends PrettyPrinter {
         showInner(sel) <> "[" <> showInner(key) <> "]"
       }
       
+      case Super(_) => ""
+      
       case fn @ Function(params, body, _) => printFunction(pkg, unit, method, fn)
       
       case x => show(expr)
@@ -142,10 +160,9 @@ object Printer extends PrettyPrinter {
 
   private def printClass (pkg: Package, c: Class) = {
     printConstructor(pkg, c, c.constructor) <> 
-    (c.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> c.name <> ", " <> printType(x) <> ");\n") getOrElse "") <> 
+    (c.sup.map(x => "goog.inherits(" <> packagePrefix(pkg) <> c.name <> ", " <> printType(x) <> ");" <> line) getOrElse "") <>
     line <>
     ssep(c.props map (printProp(pkg, c, _)), line) <> 
-    line <> line <>
     ssep(c.methods map (printMethod(pkg, c, _)), line)
   }
 
@@ -172,11 +189,15 @@ object Printer extends PrettyPrinter {
     
     jsdoc <> lhs <> rhs
   }
-    
+
   private def printMethod (pkg: Package, unit: CompilationUnit, m:Method, isConstructor: Boolean = false) = {
     // jsdoc
     val returnDoc = if (m.fun.ret != Types.VoidT) Seq("@return {"+printType(m.fun.ret)+"}") else Seq()
-    val jsdoc = doc( (m.fun.params map getParamDoc) ++ returnDoc )
+    val jsdoc = doc( 
+      (m.fun.params map getParamDoc) ++ 
+      (if (m.mod.isOverride) List("@override") else Nil) ++
+      returnDoc 
+    )
     
     val lhs = if (isConstructor) packagePrefix(pkg) <> unit.name else memberPrefix(pkg, unit) <> m.name
     
@@ -187,7 +208,7 @@ object Printer extends PrettyPrinter {
 
   private def printProp (pkg: Package, unit: CompilationUnit, prop: Property) = {
     doc(Seq("@private") filter (_ => prop.mod.isPrivate)) <>
-    memberPrefix(pkg, unit) <> prop.name <+> "=" <+> show(prop.rhs) <> semi
+    memberPrefix(pkg, unit) <> prop.name <+> "=" <+> show(prop.rhs) <> semi <> line
   }
   
   def printType (t: Type): String = t match {
@@ -227,6 +248,7 @@ object Printer extends PrettyPrinter {
     case Param(_,tpe,default) => {
       "{" + printTypeForAnnotation(tpe) + default.map((a)=>"=").mkString("") + "}" // annotate default param
     }
+    case _ => sys.error("Invalid: " + node)
   }
   
   private def packagePrefix (pkg: Package) = {
@@ -256,12 +278,10 @@ object Printer extends PrettyPrinter {
   }
   
   private def printFunction (pkg: Package, unit: CompilationUnit, method: Method, fn: Function) = {
-    val res = "function (" <> printParamList(fn.params) <> ")" <+> "{" <> nest(
+    "function (" <> printParamList(fn.params) <> ")" <+> "{" <> nest(
       line <> ssep(fn.stats map (x => maybeSemi(x)(showExpr(pkg, unit, method, x))), line),
       2
     ) <> line <> "}"
-    println(res)
-    res
   }
   
   /**

@@ -7,6 +7,15 @@ import scala.collection.mutable.ListBuffer
 object Inspector extends Rewriter {
   import Printer.print
   
+  def isSuperSelect (node: Tree): Boolean = node match {
+    case s: Select => s.qualifier match {
+      case Super(_) => true
+      case Select(qual,_,_) => isSuperSelect(qual)
+      case _ => false
+    }
+    case _ => false
+  }
+  
   def findProvides (node :Tree) :Set[String] = {
     def findProvidesInChildren (b:Product) = {
       ((b.productIterator filter (_.isInstanceOf[Tree])) ++
@@ -20,6 +29,7 @@ object Inspector extends Rewriter {
       case p @ Package("_default_", _, _) => findProvidesInChildren(p)
       case p:Package => findProvidesInChildren(p) map {p.name + "." + _}
       case b:Product => findProvidesInChildren(b)
+      case _ => sys.error("Invalid: " + node)
     }
   }
   

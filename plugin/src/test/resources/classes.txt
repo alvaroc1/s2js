@@ -47,3 +47,96 @@ ast.Cursor.prototype.focus = function () {
 ast.Cursor.prototype.getName = function () {
   return "cursor";
 };
+
+####
+package ast
+
+class Node {
+  private val x = "check"
+  def getX = x
+}
+
+class Cursor extends Node {
+
+}
+----
+goog.provide('ast.Node');
+goog.provide('ast.Cursor');
+
+/**
+ * @constructor 
+ */
+ast.Node = function () {
+
+};
+
+/**
+ * @private 
+ */
+ast.Node.prototype.x = "check";
+
+/**
+ * @return {string}
+ */
+ast.Node.prototype.getX = function () {
+  return this.x;
+};
+
+/**
+ * @constructor
+ * @extends {ast.Node}
+ */
+ast.Cursor = function () {
+  ast.Node.call(this);
+};
+goog.inherits(ast.Cursor, ast.Node);
+
+####
+package ast
+
+class X (n: String)
+
+class Node (name: String) extends X("check") {
+  private val name_ = name
+}
+----
+goog.provide('ast.X');
+goog.provide('ast.Node');
+
+/**
+ * @constructor
+ * @param {string} n
+ */
+ast.X = function (n) {
+
+};
+
+/**
+ * @constructor
+ * @extends {ast.X}
+ * @param {string} name
+ */
+ast.Node = function (name) {
+  ast.X.call(this, "check");
+  this.name_ = name;
+};
+
+goog.inherits(ast.Node, ast.X);
+
+#### Constructor statement
+package ast
+
+class Node (name: String) {
+  println("test")
+}
+----
+goog.provide('ast.Node');
+
+
+/**
+ * @constructor
+ * @param {string} name
+ */
+ast.Node = function (name) {
+  console.log("test");
+};

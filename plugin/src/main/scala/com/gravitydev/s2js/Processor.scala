@@ -14,61 +14,68 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     topdown(operators) <* 
     topdown(cleanUpBlocks) <*
     removeInheritanceFromObject <*
-    removeSuperCalls
+    removeSuperCalls <*
+    cleanupConstructors <*
+    stdLibReplacements
   )(ast).map(_.asInstanceOf[T]).get
 
   
-  val basicReplacements = rule {
-    // clean up function
-    case Function (params, stats, tpe) if stats.nonEmpty => {
-      val last = stats.last
-      val init = stats.init
+  val basicReplacements = attempt {
+    rule {
+      // clean up function
+      case Function (params, stats, tpe) if stats.nonEmpty => {
+        val last = stats.last
+        val init = stats.init
+        
+        // remove unnecessary returns
+        val newStats = init ++ Seq(
+          last match {
+            case Return(x) if tpe == Types.VoidT => x
+            
+            // don't mess with super constructor
+            case a @ Apply(s, _, _) if Inspector.isSuperSelect(s) => a
+            
+            case Return(Void) => Void
+            case x: Typed if tpe != Types.VoidT => Return(x)
+            case x => x
+          }
+        )
+        
+        // remove void returns
+        Function (params, newStats filter (_ != Void), tpe)
+      }
       
-      // remove unnecessary returns
-      val newStats = init ++ Seq(
-        last match {
-          case Return(x) if tpe == Types.VoidT => x
-          case Return(Void) => Void
-          case x: Typed if tpe != Types.VoidT => Return(x)
-          case x => x
-        }
-      )
+      // block with only one thing
+      case Block(List(x)) => x
       
-      // remove void returns
-      Function (params, newStats filter (_ != Void), tpe)
-    }
-    
-    // block with only one thing
-    case Block(List(x)) => x
-    
-    case Block(stats) => Block(stats filter (_ != Void))
-    
-    // Nil to empty array
-    case ScalaNil() => Array(Nil)
-    
-    // infix ops
-    case Apply( Select(q, name, t), args, _) if operatorMaps.infix contains name =>  {
-      InfixOp(q, args(0), operatorMaps.infix(name))
-    }
-    
-    // turn method String.length() into property
-    case Apply(Select(l @ Literal(value, Types.StringT), "length", SelectType.Method), _, _) => {
-      PropRef(Select(l, "length", SelectType.Prop), Types.NumberT)
-    }
-    case Apply(Select(a @ Apply(Select(_,_,_),_,_),"length",SelectType.Method), _, Types.NumberT) => {
-      PropRef(Select(a, "length", SelectType.Prop), Types.NumberT)
-    }
-    case Apply(Select(i @ Ident(_, Types.StringT), "length", SelectType.Method), _, _) => {
-      PropRef(Select(i, "length", SelectType.Prop), Types.NumberT)
-    }
-    
-    // List(1,2,3) => [1,2,3]
-    case Apply(Select(Select(CollectionImmutablePkg, "List", SelectType.Module), "apply", SelectType.Method), args, _) => {
-      Array(args)
-    }
-    
-    case x => {
-      x
+      case Block(stats) => Block(stats filter (_ != Void))
+      
+      // Nil to empty array
+      case ScalaNil() => Array(Nil)
+      
+      // infix ops
+      case Apply( Select(q, name, t), args, _) if operatorMaps.infix contains name =>  {
+        InfixOp(q, args(0), operatorMaps.infix(name))
+      }
+      
+      // turn method String.length() into property
+      case Apply(Select(l @ Literal(value, Types.StringT), "length", SelectType.Method), _, _) => {
+        PropRef(Select(l, "length", SelectType.Prop), Types.NumberT)
+      }
+      case Apply(Select(a @ Apply(Select(_,_,_),_,_),"length",SelectType.Method), _, Types.NumberT) => {
+        PropRef(Select(a, "length", SelectType.Prop), Types.NumberT)
+      }
+      case Apply(Select(i @ Ident(_, Types.StringT), "length", SelectType.Method), _, _) => {
+        PropRef(Select(i, "length", SelectType.Prop), Types.NumberT)
+      }
+      
+      // List(1,2,3) => [1,2,3]
+      case Apply(Select(Select(CollectionImmutablePkg, "List", SelectType.Module), "apply", SelectType.Method), args, _) => {
+        Array(args)
+      }
+      
+      // normalize 
+      case Type("scala", Nil) => ScalaType
     }
   }
   
@@ -90,7 +97,6 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
       
       // Map[String,*] apply (a bit hacky, but seems to work)
       case a @ Apply(s @ Select(s2 @ PredefMap(), "apply",SelectType.Method),params,tpe) if tpe.name startsWith "scala.collection.immutable.Map[String," => {
-        println(params)
         Object {
           params map {case Apply(Select(s @ Apply(_, List(Literal(name, Types.StringT)),_), "$minus$greater", SelectType.Method), ps, tpe) =>
             ObjectItem(name.stripPrefix("\"").stripSuffix("\""), ps.head) 
@@ -113,11 +119,10 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
   val operators = attempt {
     rule {
       // unary
-      case Select(qualifier, name, t) if operatorMaps.prefix contains name => UnaryOp(qualifier, operatorMaps.prefix(name), Prefix)
+      case Apply(Select(qualifier, name, t), Nil, _) if operatorMaps.prefix contains name => UnaryOp(qualifier, operatorMaps.prefix(name), Prefix)
       
       // prop assign
       case Apply(Select(sel, m, SelectType.Method), List(param), _) if m endsWith "_$eq" => {
-        println(sel)
         Assign(Select(sel, m stripSuffix "_$eq", SelectType.Prop), param)
       }
       
@@ -143,10 +148,10 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     val remove = attempt {
       rule {
         case Function(params, stats, tpe) => {
-          println(stats)
           Function (
             params, 
             stats filter {_ match {
+              case Return(Apply(Select(Super(This), "<init>", SelectType.Method), _, _)) => false
               case Apply(Select(Super(This), "<init>", SelectType.Method), args, tpe) => false
               case _ => true
             }},
@@ -168,13 +173,48 @@ object Processor extends (SourceFile => SourceFile) with Rewriter {
     }
   }
   
+  val cleanupConstructors = topdown {
+    attempt {
+      rule {
+        // remove returns from constructor
+        case c @ Class(_,_,const @ Method(_,fn,_),_,_) => {
+          c.copy(
+            constructor = const.copy(
+              fun = fn.copy(
+                stats = fn.stats flatMap {
+                  case Return(x) => Seq(x)
+                  case x => Seq(x) 
+                }
+              )
+            ) 
+          )
+        }
+      }
+    }
+  }
+  
+  val stdLibReplacements = topdown {
+    attempt {
+      rule {
+        // sys.error -> throw Error
+        case a @ Apply(s @ Select(Select(ScalaPkg, "sys", SelectType.Module),"error",SelectType.Method),params,tpe @ Type("Nothing", Nil)) => {
+          Throw(Apply(New(Ident("Error", Type("Error"))), params, tpe))
+        }
+        // StringOps.codePointAt -> string.charCodeAt
+        case a @ Apply(fun @ Select(qual, "codePointAt", SelectType.Method),List(num),Type("Number", Nil)) => {
+          a.copy(fun = fun.copy(name = "charCodeAt"))
+        }
+      }
+    }
+  }
+  
   // extractors
   private val ScalaType = Type("_scala_", Nil)
   private val ScalaPkg = Ident("scala", ScalaType)
   private val Predef = Select(ScalaPkg, "Predef", SelectType.Module)
   private val CollectionPkg = Select(ScalaPkg, "collection", SelectType.Module)
   private val CollectionImmutablePkg = Select(CollectionPkg, "immutable", SelectType.Module)
-  object ScalaNil {
+  private object ScalaNil {
     def unapply (x: Tree) = {
       x match {
         case Select(CollectionImmutablePkg, "Nil", SelectType.Module) => Some(())

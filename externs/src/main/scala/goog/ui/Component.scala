@@ -37,15 +37,15 @@ class Component (opt_domHelper:DomHelper=null) extends goog.events.EventTarget {
   def indexOfChild (child: Component) = 0 
   
 
-/**
- * Adds the specified component as the last child of this component.  See
- * {@link goog.ui.Component#addChildAt} for detailed semantics.
- *
- * @see goog.ui.Component#addChildAt
- * @param child The new child component.
- * @param opt_render If true, the child component will be rendered
- *    into the parent.
- */
+  /**
+   * Adds the specified component as the last child of this component.  See
+   * {@link goog.ui.Component#addChildAt} for detailed semantics.
+   *
+   * @see goog.ui.Component#addChildAt
+   * @param child The new child component.
+   * @param opt_render If true, the child component will be rendered
+   *    into the parent.
+   */
   def addChild (child: Component, opt_render: Boolean = false) {}
   
   /**
@@ -113,6 +113,12 @@ class Component (opt_domHelper:DomHelper=null) extends goog.events.EventTarget {
    * @return The removed component, if any.
    */
   def removeChild (child: AnyRef, opt_unrender: Boolean = false): Component = null
+  
+  /**
+   * Returns the component's parent, if any.
+   * @return The parent component.
+   */
+  def getParent (): Component = null
   
 }
 

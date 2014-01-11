@@ -113,26 +113,56 @@ class Translator (val global: Global) {
     val primary = body.collect({ case d:DefDef if d.symbol.isPrimaryConstructor => d }) head
 
     val params = primary.vparamss.flatten
-
-  //val properties = body.collect({ case x:ValDef if !x.symbol.isParamAccessor && !x.symbol.isParameter => x })
     
-  // get properties
-  // all valdefs that have a corresponding accessor
+    val constructorInitializedProps = body.collect {
+      case v @ ValDef(_,name,_, s @ Select(_, param: Name)) if !v.symbol.isParamAccessor => {
+        // must trim name, they come with a trailing space
+        name.toString.trim -> ast.Assign(ast.Select(ast.This, name.toString.trim, ast.SelectType.Prop), ast.Ident(param.toString, getType(s.tpe)))
+      }
+    }
+    
+    val constStatements = body.collect {
+      case a @ Apply(_,_) => getTree(a)
+    }
+
+    // get properties
+    // all valdefs that have a corresponding accessor
     val accessorNames = body.collect({ case x:DefDef if x.symbol.isGetter => x.name.toString })
     val properties = body.collect({
       // don't know why but valdef's name has a space at the end
       // trim it
-      case x:ValDef if accessorNames.contains(x.name.toString.trim) => x
+      case x:ValDef if accessorNames.contains(x.name.toString.trim) && !constructorInitializedProps.map(_._1).contains(x.name.toString.trim) => {
+        println(x.name.toString)
+        println(constructorInitializedProps.map(_._1))
+        x
+      }
     })
 
     val methods = getMethods(body)
     
-    val superTypes = parents map (_.tpe) map getType filter {_ != ast.Select(ast.Ident("scala", ast.Type("scala")), "AnyRef", ast.SelectType.Module)}
+    val superTypes = parents map (_.tpe) map getType 
+    
+    val const = getMethod(primary)
+    
+    def removeVoidReturn (fun: ast.Function) = {
+      fun.copy(
+        stats = fun.stats.filter {
+          case ast.Return(ast.Void) => false
+          case _ => true
+        }
+      )
+    }
     
     ast.Class(
       c.symbol.name.toString,
       superTypes.headOption,
-      getMethod(primary),
+      
+      // rebuild constructor with initialized props
+      const.copy(
+        fun = const.fun.copy(
+          stats = removeVoidReturn(const.fun).stats ++ constructorInitializedProps.map(_._2) ++ constStatements
+        )
+      ),
       properties map getProperty,
       methods map getMethod
     )
@@ -171,6 +201,7 @@ class Translator (val global: Global) {
     val y = m.tpt.tpe
     val x = UnitClass.tpe
     val a = m.tpt == UnitClass
+        
     ast.Method(
       m.name.toString,
       ast.Function(
@@ -182,7 +213,8 @@ class Translator (val global: Global) {
         getType(m.tpt.tpe)
       ),
       ast.Modifiers(
-        isPrivate = m.symbol.isPrivate
+        isPrivate = m.symbol.isPrivate,
+        isOverride = m.symbol.isOverridingSymbol
       )
     )
   }

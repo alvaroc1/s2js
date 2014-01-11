@@ -37,3 +37,8 @@ false
 "test".length
 ----
 "test".length
+
+#### sys.error
+sys.error("Error")
+----
+throw new Error("Error")
